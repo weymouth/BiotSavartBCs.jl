@@ -1,0 +1,62 @@
+% TU Delft beamer template
+% Author: Erwin Walraven (initial version was created by Maarten Abbink)
+% Delft Universiy of Technology
+
+\mode<presentation>
+
+\setbeamercolor{author in head/foot}{parent=palette tertiary}
+\setbeamercolor{title in head/foot}{parent=palette secondary}
+\setbeamercolor{date in head/foot}{parent=palette primary}
+\setbeamercolor{section in head/foot}{parent=palette tertiary}
+\setbeamercolor{subsection in head/foot}{parent=palette primary}
+\setbeamercolor{navigtion symbols in head/foot}{parent=palette primary}
+\setbeamercolor{logo in head/foot}{parent=palette quaternary}
+
+\setbeamercolor*{navigation symbols}{parent=palette primary}
+\setbeamercolor*{navigation symbols dimmed}{parent=palette primary,fg=parent.fg!20!parent.bg}
+
+\setbeamersize{text margin left=1.5cm}
+\setbeamersize{text margin right=0.5cm}
+
+\defbeamertemplate*{sidebar left}{}{
+	\begin{beamercolorbox}[wd=1cm,ht=10cm]{decoration}
+	\begin{minipage}[c]{1cm}
+	$ $
+	\end{minipage}
+	\end{beamercolorbox}
+}
+
+\defbeamertemplate*{footline}{}{
+	\leavevmode
+	\begin{columns}[t]
+	\column{.475\textwidth}
+	\begin{minipage}[c]{0.85cm}
+	\hbox{
+	\hspace{0.62cm}\textcolor{white}{\includegraphics[width=0.85cm]{tud-logo.pdf}}
+	}
+	\end{minipage}
+	\column{.475\textwidth}
+	\hfill {\color{tudCyan}\insertframenumber{} / \inserttotalframenumber}
+	\end{columns}
+	\vskip6pt
+}
+
+\defbeamertemplate*{minimal footline}{}{
+	\leavevmode
+	\begin{columns}[t]
+	\column{.475\textwidth}
+	\begin{minipage}[c]{0.85cm}
+	\hbox{
+	\hspace{0.62cm}\textcolor{white}{\includegraphics[width=0.85cm]{tud-logo.pdf}}
+	}
+	\end{minipage}
+	\column{.475\textwidth}
+	\end{columns}
+	\vskip6pt
+}
+
+% this normally contains the navigation links
+\defbeamertemplate*{sidebar right}{}{}
+
+\mode
+<all>
