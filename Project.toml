@@ -1,0 +1,17 @@
+name = "BiotSavartBCs"
+uuid = "ec5a6caf-bdf7-41d0-b8e1-5fafde84e19f"
+authors = ["Gabriel Weymouth"]
+version = "1.0.0-DEV"
+
+[deps]
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+WaterLily = "ed894a53-35f9-47f1-b17f-85db9237eebd"
+
+[compat]
+julia = "1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
