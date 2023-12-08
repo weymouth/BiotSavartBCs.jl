@@ -27,27 +27,36 @@ function hill_vortex(N;D=3N/4)
 end
 
 @testset "vorticity.jl" begin
-    p = 5; N = 2+2^p
-    u = Array{Float32}(undef,(N,N,2)); apply!(lamb_dipole(N),u)
+    pow = 5; N = 2+2^pow
+    u = Array{Float32}(undef,(N,N,2)); p = Array{Float32}(undef,(N,N));
+    
+    # lamb dipole
+    apply!(lamb_dipole(N),u)
     ω = MLArray(u[:,:,1])
-    @test length(ω)==p # correct number of levels
+    @test length(ω)==pow # correct number of levels
 
     fill_ω!(ω,u)
-    @test all(ω[1][[2,N-1],:].==0) # no vorticity outside the circle
+    @test all(ω[1][[2,N-1],:].==0) # no vorticity outside the bubble
     @test all(@. abs(sum(ω))<1e-5) # zero-sum at every level
-    @test allequal(abs.(ω[p][inside(ω[p])])) # center = 0
+    @test allequal(abs.(ω[pow][inside(ω[pow])])) # center = 0
 
+    # hydrostatic p on an immersed circle
+    WaterLily.@loop p[I] = -loc(0,I)[2] over I ∈ inside(p,buff=0)
+    apply!((i,x)->WaterLily.μ₀(√sum(abs2,x .-(N-2)/2)-N/4,1),u) # overwrite u with μ₀
+    fill_ω!(ω,u,p)
+    @test all(extrema(ω[1]).≈(-0.5,0.5)) # dμ₀/dx for ϵ=1
+    WaterLily.@loop p[I] = √sum(abs2,loc(0,I) .-(N-2)/2)-N/4 over I ∈ inside(p,buff=0) # overwrite p with d
+    @test all(abs(ω[1][I])==0 for I ∈ inside(p) if p[I]>2.1 || p[I]<-2.1) # ω=0 outside smoothing region
+    
+    # Hill ring vortex in 3D
     u = Array{Float32}(undef,(N,N,N,3)); apply!(hill_vortex(N),u)
     ω = ntuple(i->MLArray(u[:,:,:,1]),3)
-    @test all(@. length(ω)==p) # correct number of levels
+    @test all(@. length(ω)==pow) # correct number of levels
 
     fill_ω!(ω,u) # Ideally, ω₃=0 & |ωᵩ|N/U≤20, but ω is discontinuous...
     @test all(x->abs(N/20*x)<0.01,extrema(ω[3][1][inside(ω[3][1])]))  # ω₃ ≈ 0
-    @test allequal(round.(Int,abs.(ω[1][p][inside(ω[1][p])]))) # center = 0
-    @test allequal(round.(Int,abs.(ω[2][p][inside(ω[2][p])]))) # center = 0
-
-    # need pressure tests
-    p = Array{Float32}()
+    @test allequal(round.(Int,abs.(ω[1][pow][inside(ω[1][pow])]))) # center = 0
+    @test allequal(round.(Int,abs.(ω[2][pow][inside(ω[2][pow])]))) # center = 0   
 end
 
 @testset "velocity.jl" begin
