@@ -1,0 +1,113 @@
+\documentclass{article}
+
+\usepackage{PRIMEarxiv}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{lipsum}
+\usepackage{fancyhdr}       % header
+\usepackage{graphicx}       % graphics
+\graphicspath{{media/}}     % organize your images and other figures under media/ folder
+
+%Header
+\pagestyle{fancy}
+\thispagestyle{empty}
+\rhead{ \textit{ }} 
+
+% Update your Headers here
+\fancyhead[LO]{Running Title for Header}
+% \fancyhead[RE]{Firstauthor and Secondauthor} % Firstauthor et al. if more than 2 - must use \documentclass[twoside]{article}
+
+
+
+  
+%% Title
+\title{Far-field potential flow conditions for Immersed Cartesian meshes
+%%%% Cite as
+%%%% Update your official citation here when published 
+\thanks{\textit{\underline{Citation}}: 
+\textbf{Authors. Title. Pages.... DOI:000000/11111.}} 
+}
+
+\author{
+    Gabriel D. Weymouth\\
+    Ship Hydromechanics\\
+    Mechanical, Maritime and Material Engineering Departement (3mE) \\
+    Delft University of Technology, Delft, Netherlands \\
+    \texttt{G.D.Weymouth@tudelft.nl} \\
+    \AND
+    Marin Lauber\\
+    Ship Hydromechanics\\
+    Mechanical, Maritime and Material Engineering Departement (3mE) \\
+    Delft University of Technology, Delft, Netherlands \\
+    \texttt{marinlauber@tudelft.nl} \\
+  %% \AND
+  %% Coauthor \\
+  %% Affiliation \\
+  %% Address \\
+  %% \texttt{email} \\
+  %% \And
+  %% Coauthor \\
+  %% Affiliation \\
+  %% Address \\
+  %% \texttt{email} \\
+  %% \And
+  %% Coauthor \\
+  %% Affiliation \\
+  %% Address \\
+  %% \texttt{email} \\
+}
+
+
+\begin{document}
+\maketitle
+
+
+\begin{abstract}
+\lipsum[1]
+\end{abstract}
+
+
+% keywords can be removed
+\keywords{Boundary Condition \and Far-Field \and Immersed-Boundary}
+
+
+\section{Introduction}
+
+Far-field boundary conditions, namely known velocity normal to the boundary and known pressure, allow one to reduce the domain size and thus computational time. However, these can also lead to large errors and, in particular, can lead to severe \emph{blockage erros} on the force acting on a body \cite{Colonius2008}. These errors arise from two source; the first one is liked to the decaying potential flow induced by the body (or equivalently, in immersed-boundary methods, the system of forces). The second is that vorticity may advect or diffuse through the boundary. In \cite{Maertens2015, Lauber2022}, we used rectilinear grid stretching to maximize the domain size and minimize the error at the far-field while maintaining a high-resolution uniform grid around the body. However, this method is inefficient in cases where the body substantially moves within the domain, for example, the motion of a kite, which requires a sizeable uniform domain and an even larger stretched region. 
+
+
+For errors associated with the slowly decaying potential flow, a few techniques have been posed in the past to patch in the potential flow extending from the truncated computational boundary to infinity \cite{Colonius2008}
+
+However, inversion of the Laplacian is a smoothing operation. High-frequency components of the solution induced by circulation in the outer mesh decay more rapidly than low-frequency components. Being interested in the flow in the vicinity of the body (and its wake), we discard the solutions in the outer region, only retaining the velocity it induces on the inner domain.
+
+\textbf{T. Colonius, H. Ran, A super-grid-scale model for simulating compressible flow on unbounded domains, J. Comput. Phys. 182(2002) 191–212.}
+
+\textbf{T. Colonius, Modeling artificial boundary conditions for compressible flow, Annu. Rev. Fluid Mech. 36 (2004) 315–345.}
+
+\textbf{G. Jin, M. Braza, A nonreflecting outlet boundary condition forincompressible unsteady Navier–Stokes calculations, J. Comput.Phys. 107 (1993) 239–253.}
+
+\textbf{M.A. Ol’shanskii, V.M. Staroverov, On simulation of outflow boundary conditions in finite difference calculations for incompressible fluid, Int. J. Numer. Methods Fluid 33 (2000) 499–534}
+
+\textbf{R.L. Sani, P.M. Gresho, Resume and remarks on the open boundary condition mini symposium, Int. J. Numer. Methods Fluid 18 (1994)983–1008}
+
+\textbf{Z.J. Wang, Efficient implementation of the exact numerical farfield boundary condition for Poisson equation on an infinite domain, J.Comput. Phys. 153 (1999) 666–670}
+ 
+\section{Conclusion}
+Your conclusion here
+
+\section*{Acknowledgments}
+This was supported in part by......
+
+%Bibliography
+\bibliographystyle{unsrt}  
+\bibliography{references}  
+
+
+\end{document}
