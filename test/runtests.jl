@@ -42,11 +42,12 @@ end
 
     # hydrostatic p on an immersed circle
     WaterLily.@loop p[I] = -loc(0,I)[2] over I ∈ inside(p,buff=0)
-    apply!((i,x)->WaterLily.μ₀(√sum(abs2,x .-(N-2)/2)-N/4,1),u) # overwrite u with μ₀
+    sdf(x) = √sum(abs2,x .-(N-2)/2)-N/4
+    apply!((i,x)->WaterLily.μ₀(sdf(x),1),u) # overwrite u with μ₀
     fill_ω!(ω,u,p)
     @test all(extrema(ω[1]).≈(-0.5,0.5)) # dμ₀/dx for ϵ=1
-    WaterLily.@loop p[I] = √sum(abs2,loc(0,I) .-(N-2)/2)-N/4 over I ∈ inside(p,buff=0) # overwrite p with d
-    @test all(abs(ω[1][I])==0 for I ∈ inside(p) if p[I]>2.1 || p[I]<-2.1) # ω=0 outside smoothing region
+    WaterLily.@loop p[I] = sdf(loc(0,I)) over I ∈ inside(p,buff=0) # overwrite p with d
+    @test all(abs(ω[1][I])==0 for I ∈ inside(p) if abs(p[I])>2.1)  # ω=0 outside smoothing region
     
     # Hill ring vortex in 3D
     u = Array{Float32}(undef,(N,N,N,3)); apply!(hill_vortex(N),u)
@@ -60,7 +61,29 @@ end
 end
 
 @testset "velocity.jl" begin
-    @test true
+    function L_inf_2D(pow; N = 2+2^pow, U=(1,0))
+        u = Array{Float32}(undef,(N,N,2)); apply!(lamb_dipole(N),u)
+        ω = MLArray(u[:,:,1]); fill_ω!(ω,u)
+
+        u_max = maximum(abs,u)
+        for i ∈ 1:2
+            WaterLily.@loop u[I,i] -= U[i]+u_ω(i,I,ω) over I ∈ inside(ω[1],buff=0)
+        end
+        maximum(abs,u)/u_max
+    end
+    @test all(L_inf_2D.(4:6) .< [0.042,0.012,0.004])
+
+    function L_inf_3D(pow; N = 2+2^pow, U=(0,0,1))
+        u = Array{Float32}(undef,(N,N,N,3)); apply!(hill_vortex(N),u)
+        ω = ntuple(i->MLArray(u[:,:,:,1]),3); fill_ω!(ω,u)
+
+        u_max = maximum(abs,u)
+        for i ∈ 1:3
+            WaterLily.@loop u[I,i] -= U[i]+u_ω(i,I,ω) over I ∈ inside(ω[1][1],buff=0)
+        end
+        maximum(abs,u)/u_max
+    end
+    @test all(L_inf_3D.(4:6) .< [0.16,0.1,0.055]) # discontinuous cases converge slow...
 end
 
 @testset "util.jl" begin
