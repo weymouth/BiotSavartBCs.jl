@@ -8,5 +8,7 @@ include("velocity.jl")
 export u_ω
 
 include("util.jl")
+export biotBC!,pflowBC!,fix_resid!
+
 include("flow.jl")
 end

@@ -60,11 +60,20 @@ end
     @test allequal(round.(Int,abs.(ω[2][pow][inside(ω[2][pow])]))) # center = 0   
 end
 
+function lamb_uω(N)
+    u = Array{Float32}(undef,(N,N,2)); apply!(lamb_dipole(N),u)
+    ω = MLArray(u[:,:,1]); fill_ω!(ω,u)
+    u,ω
+end
+function hill_uω(N)
+    u = Array{Float32}(undef,(N,N,N,3)); apply!(hill_vortex(N),u)
+    ω = ntuple(i->MLArray(u[:,:,:,1]),3); fill_ω!(ω,u)
+    u,ω
+end
+
 @testset "velocity.jl" begin
     function L_inf_2D(pow; N = 2+2^pow, U=(1,0))
-        u = Array{Float32}(undef,(N,N,2)); apply!(lamb_dipole(N),u)
-        ω = MLArray(u[:,:,1]); fill_ω!(ω,u)
-
+        u,ω = lamb_uω(N)
         u_max = maximum(abs,u)
         for i ∈ 1:2
             WaterLily.@loop u[I,i] -= U[i]+u_ω(i,I,ω) over I ∈ inside(ω[1],buff=0)
@@ -74,9 +83,7 @@ end
     @test all(L_inf_2D.(4:6) .< [0.042,0.012,0.004])
 
     function L_inf_3D(pow; N = 2+2^pow, U=(0,0,1))
-        u = Array{Float32}(undef,(N,N,N,3)); apply!(hill_vortex(N),u)
-        ω = ntuple(i->MLArray(u[:,:,:,1]),3); fill_ω!(ω,u)
-
+        u,ω = hill_uω(N)
         u_max = maximum(abs,u)
         for i ∈ 1:3
             WaterLily.@loop u[I,i] -= U[i]+u_ω(i,I,ω) over I ∈ inside(ω[1][1],buff=0)
@@ -87,7 +94,33 @@ end
 end
 
 @testset "util.jl" begin
-    @test true
+    pow = 4; N = 2+2^pow; U=(1,0)
+    u,ω = lamb_uω(N); u₀ = copy(u)
+    BC!(u,U) # mess up boundaries
+    biotBC!(u,U,ω) # fix domain velocities
+    @test maximum(abs,(u.-u₀)[2:end,2:end-1,1])<0.003
+    @test maximum(abs,(u.-u₀)[2:end-1,2:end,2])<0.003
+    pflowBC!(u) # fix ghosts
+    @test maximum(abs,(u.-u₀)[2:end-1,1,1])<0.0044 # tangential
+    @test maximum(abs,(u.-u₀)[1,2:end-1,2])<0.003 # tangential
+    @test maximum(abs,(u.-u₀)[1,2:end-1,1])<0.003 # normal
+    @test maximum(abs,(u.-u₀)[2:end-1,1,2])<0.003 # normal
+
+    U=(0,0,1)
+    u,ω = hill_uω(N); u₀ = copy(u)
+    BC!(u,U) # mess up boundaries
+    biotBC!(u,U,ω) # fix domain velocities
+    @test maximum(abs,(u.-u₀)[2:end,2:end-1,2:end-1,1])<0.02
+    @test maximum(abs,(u.-u₀)[2:end-1,2:end,2:end-1,2])<0.02
+    @test maximum(abs,(u.-u₀)[2:end-1,2:end-1,2:end,3])<0.02
+    pflowBC!(u) # fix ghosts
+    @test maximum(abs,(u.-u₀)[2:end-1,1,2:end-1,3])<0.02 # tangential
+    @test maximum(abs,(u.-u₀)[1,2:end-1,2:end-1,3])<0.02 # tangential
+    @test maximum(abs,(u.-u₀)[2:end-1,2:end-1,1,3])<0.02 # normal
+
+    r = zeros(Float32,(N,N,N)); @inside r[I] = WaterLily.div(I,u)
+    fix_resid!(r)
+    @test sum(r)<1e-5
 end
 
 @testset "flow.jl" begin
