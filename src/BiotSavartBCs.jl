@@ -11,4 +11,5 @@ include("util.jl")
 export biotBC!,pflowBC!,fix_resid!
 
 include("flow.jl")
+export biot_mom_step!
 end

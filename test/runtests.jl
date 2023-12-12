@@ -124,5 +124,20 @@ end
 end
 
 @testset "flow.jl" begin
-    @test true
+    circ(D,U=1,m=3D÷2;mem=Array) = Simulation((m,m), (U,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=U*D/1e4,mem)
+    sim = circ(256,mem=Array); ω = MLArray(sim.flow.σ);
+    biot_mom_step!(sim.flow,sim.pois,ω)
+    @test abs(maximum(sim.flow.u[:,:,1])-2)<0.02 # circle u_max = 2
+    @test abs(maximum(sim.flow.u[:,:,2])-1)<0.02 # circle v_max = 1
+    ϕᵢ,ϕₒ=extrema(sim.flow.u[:,end,2])
+    @test ϕₒ>0.2                                 # side outflow
+    @test abs(ϕₒ+ϕᵢ)<2e-5                        # symmetric in/outflow
+    @test minimum(sim.flow.u[1,:,1])-5/9<0.01    # upstream slow down
+
+    sphere(D,U=1,m=3D÷2;mem=Array) = Simulation((m,m,m), (U,0,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=U*D/1e4,mem)
+    sim = sphere(128,mem=CuArray); ω = ntuple(i->MLArray(sim.flow.σ),3);
+    biot_mom_step!(sim.flow,sim.pois,ω)
+    @test abs(maximum(sim.flow.u[:,:,:,1])-1.5)<0.02    # circle u_max = 3/2
+    @test abs(maximum(sim.flow.u[:,:,:,2:3])-0.75)<0.04 # circle v,w_max = 3/4
+    @test minimum(sim.flow.u[1,:,:,1])-19/27<0.02       # upstream slow down
 end
