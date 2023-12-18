@@ -3,7 +3,7 @@ import WaterLily: divisible,restrict!
 function MLArray(x)
     N = size(x)
     levels = [N]
-    while all(N .|> divisible) prod(N .-2) > 1000
+    while all(N .|> divisible)
         N = @. 1+N÷2
         push!(levels,N)
     end

@@ -1,0 +1,94 @@
+using WaterLily,BiotSavartBCs
+using SpecialFunctions,ForwardDiff,Plots
+function lamb_dipole(N;D=3N/4,U=1)
+    β = 2.4394π/D
+    C = -2U/(β*besselj0(β*D/2))
+    function ψ(x,y)
+        r = √(x^2+y^2)
+        ifelse(r ≥ D/2, U*((D/2r)^2-1)*y, C*besselj1(β*r)*y/r)
+    end
+    return function uλ(i,xy)
+        x,y = xy .- (N-2)/2
+        i==1 && return ForwardDiff.derivative(y->ψ(x,y),y)+1+U
+        -ForwardDiff.derivative(x->ψ(x,y),x)
+    end
+end
+sdf(I) = √sum(abs2,loc(0,I) .- (N-2)/2) - D/2
+function lamb_test(N,D=3N/4,U=(1,0);maxlevels=20,dist=7)
+    uλ = lamb_dipole(N;D)
+    u = zeros(Float64,(N,N,2)); apply!(uλ,u)
+    ω = MLArray(u[:,:,1]); fill_ω!(ω,u);
+    levels=clamp(maxlevels,1,lastindex(ω))
+
+    ϵ(i,I,ω) = uλ(i,loc(0,I))-U[i]-BiotSavartBCs._u_ω(loc(0,I),dist,levels,inside(ω[levels]),
+        @inline (r,I,l=1) -> @inbounds(ω[l][I]*r[i%2+1])/(r'*r+eps(Float64)))*(2i-3)/Float32(2π)
+
+    p = zeros(Float64,(N,N));
+    WaterLily.@loop (p[I] = sdf(I)>1 ? √(ϵ(1,I,ω)^2+ϵ(2,I,ω)^2) : 0) over I ∈ inside(p,buff=0)
+    return p,ω[levels]
+end
+function flood(f::Array;shift=(0.,0.),cfill=:RdBu_11,clims=(),levels=10,kv...)
+    if length(clims)==2
+        @assert clims[1]<clims[2]
+        @. f=min(clims[2],max(clims[1],f))
+    else
+        clims = (minimum(f),maximum(f))
+    end
+    Plots.contourf(axes(f,1).+shift[1],axes(f,2).+shift[2],f',
+        linewidth=0, levels=levels, color=cfill, clims = clims, 
+        aspect_ratio=:equal; kv...)
+end
+
+# Check dependancy on maxlevels
+pow = 8; N,D = 2^pow+2,2^(pow-3)
+pmap(p) = log10(p+10^-6.5)
+dis = range(1,N÷2,length=30)
+stats(p,i) = pmap(maximum(p[I] for I in CartesianIndices(p) if dis[i-1]<sdf(I)≤dis[i]))
+data = []
+for maxlevels ∈ 1:pow-2
+    @show maxlevels
+    @time p,ω = lamb_test(N,D;maxlevels);
+    flood(pmap.(p),clims=(-7,-2),border=:none,cfill=:Greens)
+    savefig("lamb_dipole_error_level$(maxlevels).png")
+    push!(data,[stats(p,i) for i in 2:lastindex(dis)])
+end
+using JLD2
+save_object("error_levels.jld2",data)
+
+plt = plot(xlabel="d/D",ylabel="max(log10(|uₑ|/U))");
+colors = colormap("Blues",pow-1)
+for (maxlevels,vec) in enumerate(data[1:end-1])
+    plot!(plt,collect(dis)[2:end]./D,vec,label="levels=$(maxlevels)",c=colors[2+maxlevels])
+end
+plt
+savefig("lamb_dipole_error_levels.png")
+
+#Data for pow=10
+duration = [716.288498,242.197793,58.948998,15.684305,5.963465,4.209239,3.696246,3.745916]
+plot(log10(duration[1]).-log10.(duration),xlabel="levels",ylabel="log₁₀(speedup)",legend=false)
+savefig("lamb_dipole_speedup_levels.png")
+
+# Check dependancy on dist
+data = []
+for dist ∈ 2 .^ collect(0:pow-1)
+    @show dist
+    @time p,ω = lamb_test(N,D;dist);
+    flood(pmap.(p),clims=(-7,-2),border=:none,cfill=:Greens)
+    savefig("lamb_dipole_error_dist$(dist).png")
+    push!(data,[stats(p,i) for i in 2:lastindex(dis)])
+end
+using JLD2
+save_object("error_dists.jld2",data)
+
+colors = colormap("Blues",pow+2)
+plt = plot(xlabel="d/D",ylabel="max(log10(|uₑ|/U))");
+for (dist,vec) in enumerate(data[1:end])
+    plot!(plt,collect(dis)[2:end]./D,vec,label="log₂(size)=$(dist-1)",c=colors[2+dist])
+end
+plt
+savefig("lamb_dipole_error_dists.png")
+
+#Data for pow=9
+duration = [0.081418,0.145927,0.331875,0.915429,2.699172,7.448780,19.274261,39.481098,54.489419]
+plot(0:8,log10(duration[1]).-log10.(duration),xlabel="log₂(kernel size)",ylabel="log₁₀(speedup)",legend=false)
+savefig("lamb_dipole_speedup_dists.png")
