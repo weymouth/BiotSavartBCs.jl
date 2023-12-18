@@ -39,41 +39,17 @@ function flood(f::Array;shift=(0.,0.),cfill=:RdBu_11,clims=(),levels=10,kv...)
         aspect_ratio=:equal; kv...)
 end
 
-# Check dependancy on maxlevels
+# Check dependancy on dist = size of kernel
 pow = 8; N,D = 2^pow+2,2^(pow-3)
 pmap(p) = log10(p+10^-6.5)
 dis = range(1,N÷2,length=30)
 stats(p,i) = pmap(maximum(p[I] for I in CartesianIndices(p) if dis[i-1]<sdf(I)≤dis[i]))
-data = []
-for maxlevels ∈ 1:pow-2
-    @show maxlevels
-    @time p,ω = lamb_test(N,D;maxlevels);
-    flood(pmap.(p),clims=(-7,-2),border=:none,cfill=:Greens)
-    savefig("lamb_dipole_error_level$(maxlevels).png")
-    push!(data,[stats(p,i) for i in 2:lastindex(dis)])
-end
-using JLD2
-save_object("error_levels.jld2",data)
 
-plt = plot(xlabel="d/D",ylabel="max(log10(|uₑ|/U))");
-colors = colormap("Blues",pow-1)
-for (maxlevels,vec) in enumerate(data[1:end-1])
-    plot!(plt,collect(dis)[2:end]./D,vec,label="levels=$(maxlevels)",c=colors[2+maxlevels])
-end
-plt
-savefig("lamb_dipole_error_levels.png")
-
-#Data for pow=10
-duration = [716.288498,242.197793,58.948998,15.684305,5.963465,4.209239,3.696246,3.745916]
-plot(log10(duration[1]).-log10.(duration),xlabel="levels",ylabel="log₁₀(speedup)",legend=false)
-savefig("lamb_dipole_speedup_levels.png")
-
-# Check dependancy on dist
 data = []
 for dist ∈ 2 .^ collect(0:pow-1)
     @show dist
     @time p,ω = lamb_test(N,D;dist);
-    flood(pmap.(p),clims=(-7,-2),border=:none,cfill=:Greens)
+    flood(pmap.(p),clims=(-6,-1),border=:none,cfill=:Greens)
     savefig("lamb_dipole_error_dist$(dist).png")
     push!(data,[stats(p,i) for i in 2:lastindex(dis)])
 end
