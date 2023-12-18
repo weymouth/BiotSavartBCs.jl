@@ -80,24 +80,47 @@
 
 \section{Introduction}
 
-Far-field boundary conditions, namely known velocity normal to the boundary and known pressure, allow one to reduce the domain size and thus computational time. However, these can also lead to large errors and, in particular, can lead to severe \emph{blockage erros} on the force acting on a body \cite{Colonius2008}. These errors arise from two source; the first one is liked to the decaying potential flow induced by the body (or equivalently, in immersed-boundary methods, the system of forces). The second is that vorticity may advect or diffuse through the boundary. In \cite{Maertens2015, Lauber2022}, we used rectilinear grid stretching to maximize the domain size and minimize the error at the far-field while maintaining a high-resolution uniform grid around the body. However, this method is inefficient in cases where the body substantially moves within the domain, for example, the motion of a kite, which requires a sizeable uniform domain and an even larger stretched region. 
+Far-field boundary conditions, namely known velocity normal to the boundary and known pressure, allow one to reduce the domain size and thus computational time. However, these can also lead to large errors and, in particular, can lead to severe \emph{blockage erros} on the force acting on a body \cite{Colonius2008}. These errors arise from two sources; the first one is liked to the decaying potential flow induced by the body (or equivalently, in immersed-boundary methods, the system of forces). The second is that vorticity may advect or diffuse through the boundary. In \cite{Maertens2015, Lauber2022}, we used rectilinear grid stretching to maximize the domain size and minimize the error at the farfield while maintaining a high-resolution uniform grid around the body. However, this method is inefficient in cases where the body substantially moves within the domain, for example, the motion of a kite, which requires a sizeable uniform domain and an even larger stretched region. 
 
 
 For errors associated with the slowly decaying potential flow, a few techniques have been posed in the past to patch in the potential flow extending from the truncated computational boundary to infinity \cite{Colonius2008}
 
 However, inversion of the Laplacian is a smoothing operation. High-frequency components of the solution induced by circulation in the outer mesh decay more rapidly than low-frequency components. Being interested in the flow in the vicinity of the body (and its wake), we discard the solutions in the outer region, only retaining the velocity it induces on the inner domain.
 
-\textbf{T. Colonius, H. Ran, A super-grid-scale model for simulating compressible flow on unbounded domains, J. Comput. Phys. 182(2002) 191–212.}
+High-fidelity computation fluid-structure interaction is an essential tool in many scientific fields to study the flow around energy harvester, or biological systems \cite{Lauber2023RapidFlight}. A class of methods that have shown significant performance benefits over standard Arbitrary Eulerian-Lagrangian (ALE) approaches are immersed-boundary methods. The major benefit of those methods is to allow for simple modeling of complex motion without significant computational overhead. One of the drawbacks of this class of methods is that are often based on Cartesian meshed, which can become very large for external flow at high Reynolds numbers. Different techniques have been proposed to reduce the number of grid points of these computations, grid stretching, multi-domain far-field boundary conditions\cite{Colonius2008}, coupling a near wall Eulerian solver to a Vortex particle method in the wake\cite{Billuart2023AFlows}. These methods allow to reduce the two sources of error introduced by truncating an infinite computational domain, namely the fast decaying potential flow solution and the vorticity that may advect or diffuse through the boundary\cite{Colonius2008}.
 
-\textbf{T. Colonius, Modeling artificial boundary conditions for compressible flow, Annu. Rev. Fluid Mech. 36 (2004) 315–345.}
+\section{Far-Field potential boundary conditions}
 
-\textbf{G. Jin, M. Braza, A nonreflecting outlet boundary condition forincompressible unsteady Navier–Stokes calculations, J. Comput.Phys. 107 (1993) 239–253.}
+In this manuscript, we propose a novel method for imposing external potential-flow boundary conditions on the velocity and pressure fields at the exterior of a Cartesian computational domain. The method relies on substituting the standard free-slip or reflection boundary conditions typically applied on the domain's exterior by a \emph{Biot-Savart integral} of the vorticity inside the domain, implicitly assuming the external flow is potential
+\begin{equation}\label{eq:1}
+    {\vec u}({\vec x}) = \int_{\mathcal{V}}K({\vec x} - \vec{y})\times \vec\omega({\vec y})\text{ d}\vec{y} \quad\quad \forall \vec x\, \in \partial\mathcal{V}
+\end{equation}
+where $K$ is the $n$-dimensional Biot-Savart kernel and $\partial\mathcal{V}$ is the exterior domain boundary, see Fig.~\ref{fig1}. A fast multigrid method is used to approximate the integral of Eq.~(\ref{eq:1}) in $O(\log N)$ operations for every boundary value, instead of the $O(N)$ required for a direct summation.
 
-\textbf{M.A. Ol’shanskii, V.M. Staroverov, On simulation of outflow boundary conditions in finite difference calculations for incompressible fluid, Int. J. Numer. Methods Fluid 33 (2000) 499–534}
+The new boundary condition is injected into a second-order Navier-Stokes solver using the Boundary-Data Immersion Method (BDIM) \cite{Maertens2015, Lauber2022} for immersed boundaries and a geometrical multigrid solver for the projection pressure-Poisson equation. The new Biot-Savart external boundary induces a coupling with the immersed body within the pressure solve, and we use a deferred correction approach on the coupling term which only requires Eq.~(\ref{eq:1}) to be evaluated/updated once per V-cycle, typically only 3 times per time step.
 
-\textbf{R.L. Sani, P.M. Gresho, Resume and remarks on the open boundary condition mini symposium, Int. J. Numer. Methods Fluid 18 (1994)983–1008}
+\section{Validation Cases}
 
-\textbf{Z.J. Wang, Efficient implementation of the exact numerical farfield boundary condition for Poisson equation on an infinite domain, J.Comput. Phys. 153 (1999) 666–670}
+\subsection{Ossen Vortex}
+test reconstruction
+
+\subsection{Propagation of an Oseen vortex}
+test error associated with convection/diffusion of vorticity across the interface.
+\subsection{Potential flow around a cylinder}
+test overall inclusion the the projection scheme. 
+
+
+% \textbf{T. Colonius, H. Ran, A super-grid-scale model for simulating compressible flow on unbounded domains, J. Comput. Phys. 182(2002) 191–212.}
+
+% \textbf{T. Colonius, Modeling artificial boundary conditions for compressible flow, Annu. Rev. Fluid Mech. 36 (2004) 315–345.}
+
+% \textbf{G. Jin, M. Braza, A nonreflecting outlet boundary condition forincompressible unsteady Navier–Stokes calculations, J. Comput.Phys. 107 (1993) 239–253.}
+
+% \textbf{M.A. Ol’shanskii, V.M. Staroverov, On simulation of outflow boundary conditions in finite difference calculations for incompressible fluid, Int. J. Numer. Methods Fluid 33 (2000) 499–534}
+
+% \textbf{R.L. Sani, P.M. Gresho, Resume and remarks on the open boundary condition mini symposium, Int. J. Numer. Methods Fluid 18 (1994)983–1008}
+
+% \textbf{Z.J. Wang, Efficient implementation of the exact numerical farfield boundary condition for Poisson equation on an infinite domain, J.Comput. Phys. 153 (1999) 666–670}
  
 \section{Conclusion}
 Your conclusion here
