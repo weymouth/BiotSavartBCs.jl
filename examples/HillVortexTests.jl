@@ -9,7 +9,7 @@ hill_vortex(N;D=3N/4) = function uλ(i,xyz)
     cos(θ)*v_r-sin(θ)*v_θ
 end
 
-m_u_ω(i,I,ω,dist) = BiotSavartBCs._u_ω(loc(i,I,Float64),dist,lastindex(ω[1]),inside(ω[1][end]),
+m_u_ω(i,I,ω,dist) = BiotSavartBCs._u_ω(loc(0,I,Float64),dist,lastindex(ω[1]),inside(ω[1][end]),
         @inline (r,I,l=1) -> WaterLily.permute((j,k)->@inbounds(ω[j][l][I]*r[k]),i)/√(r'*r+eps(Float64))^3)/(4π)
 
 using BenchmarkTools
@@ -59,7 +59,7 @@ using JLD2
 save_object("Hill_error.jld2",data)
 
 colors = colormap("Blues",pow+2)
-plt = plot(xlabel="d/D",ylabel="max(log10(|uₑ|/U))");
+plt = plot(xlabel="d/D",ylabel="max(log10(|uₑ|/U))",ylims=(-6,-1));
 for (dist,vec) in enumerate(data)
     plot!(plt,collect(dis)[2:end]./D,vec,label="log₂(size)=$(dist-1)",c=colors[2+dist])
 end
