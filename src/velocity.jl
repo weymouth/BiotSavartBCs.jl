@@ -7,8 +7,8 @@ function _u_ω(x,dis,l,R,biotsavart,u=0f0)
         Rclose = inR(x/dx .-dis,R):inR(x/dx .+dis,R)
 
         # get contributions outside Rclose
-        for I ∈ R
-            !(I ∈ Rclose) && (u += biotsavart(r(x,I,dx),I,l))
+        R ≠ Rclose && for I ∈ R
+            I ∉ Rclose && (u += biotsavart(r(x,I,dx),I,l))
         end
 
         # move "up" one level within Rclose
