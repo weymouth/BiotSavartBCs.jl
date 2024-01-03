@@ -36,7 +36,7 @@ p,ω = fill_hill(N,D);
 btime(b) = minimum(b).time
 duration = [btime(@benchmark m_u_ω(1,$R[1],$ω,$dist)) for dist ∈ 2 .^ collect(0:pow-1)]
 
-using Plots
+include("TwoD_plots.jl")
 plot(0:7,log10(duration[1]).-log10.(duration),xlabel="log₂(kernel size)",ylabel="log₁₀(speedup)",legend=false)
 savefig("Hill_speedup_dists.png")
 
@@ -48,18 +48,6 @@ function hill_error(ω,N,D,U=(0,0,1);dist=4)
     p = zeros(Float64,(N,1,N))
     @inside p[I] = sdf(J(I))>1 ? √WaterLily.fsum(i->ϵ(i,J(I),ω)^2,3) : 0
     return p
-end
-
-function flood(f::Array;shift=(0.,0.),cfill=:RdBu_11,clims=(),levels=10,kv...)
-    if length(clims)==2
-        @assert clims[1]<clims[2]
-        @. f=min(clims[2],max(clims[1],f))
-    else
-        clims = (minimum(f),maximum(f))
-    end
-    Plots.contourf(axes(f,1).+shift[1],axes(f,2).+shift[2],f',
-        linewidth=0, levels=levels, color=cfill, clims = clims, 
-        aspect_ratio=:equal; kv...)
 end
 
 pow = 8; N,D = 2^pow+2,2^(pow-3)
