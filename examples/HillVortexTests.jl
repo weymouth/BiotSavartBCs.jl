@@ -25,7 +25,7 @@ pC,ωC = fill_hill(N,D,T=Float32,mem=CuArray);
 R = inside(p); p[R[1]] = u_ω(1,R[1],ω)
 @btime $p[$R] .= u_ω.(Ref(1),$R,Ref($ω)); # 1600ms 0KiB
 @btime @inside $p[I] = u_ω(1,I,$ω); # 220ms 24KiB
-@btime CUDA.@sync @inside $pC[I] = u_ω(1,I,$ωC); # 76ms 12KiB
+@btime CUDA.@sync @inside $pC[I] = u_ω(1,I,$ωC); # 76ms 12KiB (Julia 1.10: 41ms 8KiB!)
 
 # Test time scaling with dist
 m_u_ω(i,I,ω,dist) = BiotSavartBCs._u_ω(loc(0,I,Float64),dist,lastindex(ω[1]),inside(ω[1][end]),
@@ -41,11 +41,12 @@ plot(0:7,log10(duration[1]).-log10.(duration),xlabel="log₂(kernel size)",ylabe
 savefig("Hill_speedup_dists.png")
 
 # Check error scaling with dist
+@inline sdf(I) = √sum(abs2,loc(0,I) .- (N-2)/2) - D/2; @inline J(I) = I+CartesianIndex(0,N÷2,0)
 function hill_error(ω,N,D,U=(0,0,1);dist=4)
     uλ = hill_vortex(N;D)
     @inline ϵ(i,I,ω) = uλ(i,loc(0,I))-U[i]-m_u_ω(i,I,ω,dist)
     p = zeros(Float64,(N,1,N))
-    WaterLily.@loop (p[I] = sdf(J(I))>1 ? √(ϵ(1,J(I),ω)^2+ϵ(2,J(I),ω)^2+ϵ(3,J(I),ω)^2) : 0) over I ∈ CartesianIndices(p)
+    @inside p[I] = sdf(J(I))>1 ? √WaterLily.fsum(i->ϵ(i,J(I),ω)^2,3) : 0
     return p
 end
 
@@ -64,7 +65,6 @@ end
 pow = 8; N,D = 2^pow+2,2^(pow-3)
 pmap(p) = log10(p+10^-6.5)
 dis = range(1,N÷2,length=30)
-@inline sdf(I) = √sum(abs2,loc(0,I) .- (N-2)/2) - D/2; @inline J(I) = I+CartesianIndex(0,N÷2,0)
 stats(p,i) = pmap(maximum(p[I] for I in CartesianIndices(p) if dis[i-1]<sdf(J(I))≤dis[i]))
 
 data = []; _,ω = fill_hill(N,D);
