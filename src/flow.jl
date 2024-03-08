@@ -25,7 +25,7 @@ function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,U;w=1,log=false,tol
     biotBC!(a.u,U,ω)            # Apply domain BCs
 
     b = ml_b.levels[1]
-    @inside b.z[I] = div(I,a.u)   # Set σ=∇⋅u
+    @inside b.z[I] = div(I,a.u)+a.σᵥ[I]   # Set σ=∇⋅u
     residual!(b); fix_resid!(b.r) # Set r=Ax-σ, and ensure sum(r)=0
 
     r₂ = L₂(b); nᵖ = 0; x₀ = point(ω)
@@ -40,8 +40,6 @@ function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,U;w=1,log=false,tol
         r₂<tol && break
     end
     push!(ml_b.n,nᵖ)
-    # (nᵖ<2 && length(ml_b.levels)>5) && pop!(ml_b.levels); # remove coarsest level if this was easy
-    # (nᵖ>4 && divisible(ml_b.levels[end])) && push!(ml_b.levels,restrictML(ml_b.levels[end])) # add a level if this was hard
     
     for i ∈ 1:n   # Project u -= μ₀∇p
         @loop a.u[I,i] -= b.L[I,i]*∂(i,I,b.x) over I ∈ inside(b.x)
