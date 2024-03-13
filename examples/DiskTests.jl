@@ -25,16 +25,16 @@ domain = (2:N+1,2:N+1,N÷2+1)
 sim = make_sim_acc(mem=CUDA.CuArray;N,R);
 ω = ntuple(i->MLArray(sim.flow.σ),3);
 use_biotsavart = true; forces = [];
-global k=0
+# global k=0
 for t in 1:3
     @time while sim_time(sim)<t #sim_step!(sim,t)
         measure!(sim,sum(sim.flow.Δt)) # update the body compute at timeNext
         use_biotsavart ? biot_mom_step!(sim.flow,sim.pois,ω) : WaterLily.mom_step!(sim.flow,sim.pois)
         f = -2WaterLily.∮nds(sim.flow.p,sim.flow.f,sim.body,sum(sim.flow.Δt[1:end-1]))/sim.L^2
         push!(forces,f[1])
-        flood(sim.flow.p[CIs(domain[1:2]),domain[3]]|>Array,clims=(-2,2))
-        savefig("press_$(k).png")
-        global k+=1
+        # flood(sim.flow.p[CIs(domain[1:2]),domain[3]]|>Array,clims=(-2,2))
+        # savefig("press_$(k).png")
+        # global k+=1
     end
     BCs = use_biotsavart ? "biot" : "reflect"
     flood(sim.flow.p[CIs(domain[1:2]),domain[3]]|>Array,clims=(-2,2))

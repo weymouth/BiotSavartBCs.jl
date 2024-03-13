@@ -34,7 +34,7 @@ function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,U;w=1,log=false,tol
         Vcycle!(ml_b); smooth!(b) # Improve solution
         b.ϵ .= b.x .-x₀; x₀ .= 0  # soln update: ϵ = x-x₀
         fill_ω!(ω,a.μ₀,b.ϵ)       # vort update: Δω = -∇×μ₀∇ϵ
-        update_resid!(b.r,a.u,b.z,b.L,ω) # Update domain BC and resid
+        update_resid!(b.r,a.u,b.z,ω) # Update domain BC and resid
         r₂ = L₂(b); nᵖ+=1
         log && @show nᵖ,r₂
         r₂<tol && break
@@ -51,8 +51,8 @@ function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,U;w=1,log=false,tol
 end
 
 # update domain velocity and residual
-function update_resid!(r,u,u_ϵ,L,ω_ϵ)
-    N,n = size_u(L); inN(I,N) = all(@. 2 ≤ I.I ≤ N-1)
+function update_resid!(r,u,u_ϵ,ω_ϵ)
+    N,n = size_u(u); inN(I,N) = all(@. 2 ≤ I.I ≤ N-1)
     for i ∈ 1:n
         @loop (u_ϵ[I]=u_ω(i,I,ω_ϵ); u[I,i]+=u_ϵ[I]; inN(I,N) && (r[I]-=u_ϵ[I])) over I ∈ slice(N,2,i)
         @loop (u_ϵ[I]=u_ω(i,I,ω_ϵ); u[I,i]+=u_ϵ[I]; inN(I-δ(i,I),N) && (r[I-δ(i,I)]+=u_ϵ[I])) over I ∈ slice(N,N[i],i)
