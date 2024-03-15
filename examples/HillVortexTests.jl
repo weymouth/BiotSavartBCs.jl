@@ -41,13 +41,16 @@ plot(0:7,log10(duration[1]).-log10.(duration),xlabel="log₂(kernel size)",ylabe
 savefig("Hill_speedup_dists.png")
 
 # Check error scaling with dist
-@inline sdf(I) = √sum(abs2,loc(0,I) .- (N-2)/2) - D/2; @inline J(I) = I+CartesianIndex(0,N÷2,0)
+@inline sdf(I) = √sum(abs2,loc(0,I) .- (N-2)/2) - D/2;
+@inline J(I) = I+CartesianIndex(0,N÷2,0)
 function hill_error(ω,N,D,U=(0,0,1);dist=4)
     uλ = hill_vortex(N;D)
     @inline ϵ(i,I,ω) = uλ(i,loc(0,I))-U[i]-m_u_ω(i,I,ω,dist)
     p = zeros(Float64,(N,1,N))
-    @inside p[I] = sdf(J(I))>1 ? √WaterLily.fsum(i->ϵ(i,J(I),ω)^2,3) : 0
-    return p
+    for i ∈ 1:3
+        @WaterLily.loop p[I] += ifelse(sdf(J(I))>1,ϵ(i,J(I),ω)^2,0.0) over I in CartesianIndices(p)
+    end
+    return .√p
 end
 
 pow = 8; N,D = 2^pow+2,2^(pow-3)

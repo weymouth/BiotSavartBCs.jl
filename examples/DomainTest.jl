@@ -58,7 +58,7 @@ let
 
     plt = plot(dpi=300);
     for (i,θ) ∈ enumerate(params)
-        file = jldopen("domain_$(θ[1])_$(θ[2])_$(θ[3]).jld2", "r")
+        file = jldopen("/home/marinlauber/domain_$(θ[1])_$(θ[2])_$(θ[3]).jld2", "r")
         mygroup = file["case"]
         n,m,use_biotsavart = mygroup["θ"]
         BC = ifelse(use_biotsavart,"Biot-Savart","Reflection")
@@ -71,7 +71,7 @@ let
 
     plt = plot(dpi=300);
     for (i,θ) ∈ enumerate(params)
-        file = jldopen("domain_$(θ[1])_$(θ[2])_$(θ[3]).jld2", "r")
+        file = jldopen("/home/marinlauber/domain_$(θ[1])_$(θ[2])_$(θ[3]).jld2", "r")
         mygroup = file["case"]
         n,m,use_biotsavart = mygroup["θ"]
         BC = ifelse(use_biotsavart,"Biot-Savart","Reflection")
@@ -85,15 +85,20 @@ let
 
     plt = plot(dpi=300);
     for (i,θ) ∈ enumerate(params)
-        file = jldopen("domain_$(θ[1])_$(θ[2])_$(θ[3]).jld2", "r")
+        file = jldopen("/home/marinlauber/domain_$(θ[1])_$(θ[2])_$(θ[3]).jld2", "r")
         mygroup = file["case"]
         n,m,use_biotsavart = mygroup["θ"]
-        BC = ifelse(use_biotsavart,"Biot-Savart","Reflection")
-        ls = ifelse(use_biotsavart,:solid,:dash)
+        BC = ifelse(θ[3],"Biot-Savart","Reflection")
+        ls = ifelse(θ[3],:solid,:dash)
         f = Float32.(reduce(vcat,mygroup["f"]')[1:end,:])
         plot!(plt,f[:,1],(f[:,2].+f[:,4])./32,label="$(n)Dx$(m)D using "*BC;ls)
     end
-    xlims!(0,15);ylims!(0,3.5);
+    file = jldopen("/home/marinlauber/rotated_cylinder.jld2", "r")
+    mygroup = file["case1"]
+    f = Float32.(reduce(vcat,mygroup["f"]')[1:end,:])
+    force = .√((f[:,2].+f[:,4]).^2 .+ (f[:,3].+f[:,5]).^2)
+    plot!(plt,f[:,1],force./32,label="Rotated Cylinder Biot-Savart")
+    xlims!(0,10);ylims!(0,2.0);
     title!("Domain size study");xlabel!("Convective time");ylabel!("2Force/ρUR")
     savefig("force.png")
 end

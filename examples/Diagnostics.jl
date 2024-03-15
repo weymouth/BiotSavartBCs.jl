@@ -10,16 +10,15 @@ using WaterLily
 """
 Curvature corrected kernel evaluated ε away from the body
 """
-@inline function nds_ϵ(body::AbstractBody,x,t,ε,κ=0.0)
+@inline function nds_ϵ(body::AbstractBody,x,t,ε,κ)
     d,n,_ = measure(body,x,t); 
-    # κ = 0.5tr(ForwardDiff.hessian(y -> body.sdf(y,t), x))
-    # κ = ifelse(isnan(κ),0.0,κ)
+    isnothing(κ) &&  (κ=0.5tr(ForwardDiff.hessian(y -> body.sdf(y,t),x)); κ=ifelse(isnan(κ),0.0,κ))
     n*WaterLily.kern(clamp(d-ε,-1,1))/prod(1.0.+κ*d)
 end
 """
-Surface integral of pressure and viscous stress tensor
+Surface integral of pressure and viscous stress tensor, can provide a curvature if known
 """
-function diagnostics(a::Simulation;κ=0.0)
+function diagnostics(a::Simulation;κ=nothing)
     # get time
     t = WaterLily.time(a); _,N = size_u(a.flow.u); T = eltype(a.flow.u)
     # compute the pressure force
