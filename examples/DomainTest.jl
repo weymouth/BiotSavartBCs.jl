@@ -3,14 +3,7 @@ using WaterLily
 using CUDA
 include("Diagnostics.jl")
 include("TwoD_plots.jl")
-function Cd(t;Re=550)
-    # W. Collins, S. Dennis, The initial ﬂow past an impulsively started circular cylinder, Q. J. Mech. Appl. Math. 26 (1973) 53–75.
-    k = 4√(t/Re)
-    return π/√(Re*t)*((2.257+k-0.141k^2+0.031k^3)+
-                      (8.996-41k+143.8k^2+45.4k^3)*t^2 +
-                      (20.848-314.08k-1851.36k^2-194.8k^3)*t^4 +
-                      (28.864+6.272k)*t^6)
-end
+
 #Quantify domain sensitivity
 circ(D,n,m;Re=200,U=1,mem=CUDA.CuArray) = Simulation((n*D,m*D), (U,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m*D÷2)-D÷2),ν=U*D/Re,mem)
 function wake_velocity(n=5,m=3;D=64,use_biotsavart=true,t_end=100)
@@ -51,10 +44,6 @@ for (i,θ) ∈ enumerate(params)
 end
 using Plots,FFTW
 let
-    # file = jldopen("reference_data.jld2", "r")
-    # koumou = file["koumou"]
-    # gillis = file["gillis"]
-    # close(file)
 
     plt = plot(dpi=300);
     for (i,θ) ∈ enumerate(params)
