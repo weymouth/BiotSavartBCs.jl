@@ -12,7 +12,7 @@ function Cd(t;Re=550)
                       (28.864+6.272k)*t^6)
 end
 #Quantify domain sensitivity
-circ(D,n,m;Re=550,U=1,mem=CUDA.CuArray) = Simulation((n*D,m*D), (U,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m*D÷2)-D÷2),ν=U*D/Re,mem)
+circ(D,n,m;Re=200,U=1,mem=CUDA.CuArray) = Simulation((n*D,m*D), (U,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m*D÷2)-D÷2),ν=U*D/Re,mem)
 function wake_velocity(n=5,m=3;D=64,use_biotsavart=true,t_end=100)
     sim = circ(D,n,m); ω = MLArray(sim.flow.σ)
     u = Float32[]; Is = CartesianIndex(D+m*D÷2,m*D÷2); forces = []; iter = 0
@@ -35,20 +35,20 @@ function wake_velocity(n=5,m=3;D=64,use_biotsavart=true,t_end=100)
 end
 params = [(5,3,true) (8,5,true) (10,8,true) (5,3,false) (8,5,false) (10,8,false) (20,16,false) (30,24,false)]
 using JLD2
-# for (i,θ) ∈ enumerate(params)
-#     jldopen("domain_$(θ[1])_$(θ[2])_$(θ[3]).jld2", "w") do file
-#         mygroup = JLD2.Group(file,"case")
-#         mygroup["θ"] = θ
-#         @show θ
-#         n,m,use_biotsavart = θ
-#         (sim,u,f) = wake_velocity(n,m;t_end=100,use_biotsavart);
-#         mygroup["u"] = u
-#         mygroup["p"] = sim.flow.p
-#         mygroup["f"] = f
-#         @inside sim.flow.σ[I] = BiotSavartBCs.centered_curl(3,I,sim.flow.u)*sim.L/sim.U
-#         mygroup["ω"] = sim.flow.σ
-#     end
-# end
+for (i,θ) ∈ enumerate(params)
+    jldopen("domain_$(θ[1])_$(θ[2])_$(θ[3]).jld2", "w") do file
+        mygroup = JLD2.Group(file,"case")
+        mygroup["θ"] = θ
+        @show θ
+        n,m,use_biotsavart = θ
+        (sim,u,f) = wake_velocity(n,m;t_end=100,use_biotsavart);
+        mygroup["u"] = u
+        mygroup["p"] = sim.flow.p
+        mygroup["f"] = f
+        @inside sim.flow.σ[I] = BiotSavartBCs.centered_curl(3,I,sim.flow.u)*sim.L/sim.U
+        mygroup["ω"] = sim.flow.σ
+    end
+end
 using Plots,FFTW
 let
     # file = jldopen("reference_data.jld2", "r")
@@ -98,7 +98,7 @@ let
     f = Float32.(reduce(vcat,mygroup["f"]')[1:end,:])
     force = .√((f[:,2].+f[:,4]).^2 .+ (f[:,3].+f[:,5]).^2)
     plot!(plt,f[:,1],force./32,label="Rotated Cylinder Biot-Savart")
-    xlims!(0,10);ylims!(0,2.0);
+    xlims!(0,6);ylims!(0,2.0);
     title!("Domain size study");xlabel!("Convective time");ylabel!("2Force/ρUR")
     savefig("force.png")
 end

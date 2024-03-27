@@ -1,5 +1,22 @@
 using WaterLily,StaticArrays,CUDA,BiotSavartBCs
 
+_struc_size(s::Union{Function,Tuple,Number,AbstractArray}) = sizeof(s)
+function _struc_size(s::MultiLevelPoisson)
+    tot = 0.0
+    for l in s.levels
+        tot += _struc_size(l)
+    end
+    tot
+end
+function _struc_size(s)
+    tot = 0.0
+    for field in fieldnames(typeof(s))
+        tot += _struc_size(getfield(s,field))
+    end
+    tot
+end
+Base.sizeof(a::Simulation)= round(_struc_size(a)/1e9;digits=4),"GB"
+
 function make_sim(; N=128, R=32, a=0.5, U=1, Re=1e3, mem=Array)
     disk(x,t) = (r = √(x[2]^2+x[3]^2); √(x[1]^2+(r-min(r,R))^2)-1.5)
     s(t) = ifelse(t<U/a,0.5a*t^2,U*(t-0.5U/a)) # displacement
@@ -24,39 +41,62 @@ using JLD2
 CIs = CartesianIndices
 N = 2^8; R = N/3
 domain = (2:N+1,2:N+1,N÷2+1)
-for use_biotsavart in [true false]
+for use_biotsavart in [true]
     sim = make_sim_acc(mem=CUDA.CuArray;N,R);
     ω = use_biotsavart ? ntuple(i->MLArray(sim.flow.σ),3) : nothing
-    forces = []; k=0
-    for t in 1:3
+    forces = []; k=0; σ = []; p = [];
+    @show sizeof(sim)
+    for t in 1:20
         @time while sim_time(sim)<t #sim_step!(sim,t)
             measure!(sim,sum(sim.flow.Δt)) # update the body compute at timeNext
             use_biotsavart ? biot_mom_step!(sim.flow,sim.pois,ω) : WaterLily.mom_step!(sim.flow,sim.pois)
-            f = -2WaterLily.∮nds(sim.flow.p,sim.flow.f,sim.body,sum(sim.flow.Δt[1:end-1]))/sim.L^2
+            f = -2WaterLily.∮nds(sim.flow.p,sim.flow.f,sim.body,sum(sim.flow.Δt[1:end-1]))/R^2
             push!(forces,[sim_time(sim),f[1]])
-            # flood(sim.flow.p[CIs(domain[1:2]),domain[3]]|>Array,clims=(-2,2))
-            # savefig("press_$(k).png")
-            # global k+=1
         end
-        BCs = use_biotsavart ? "biot" : "reflect"
-        flood(sim.flow.p[CIs(domain[1:2]),domain[3]]|>Array,clims=(-2,2))
-        savefig("Disk_"*BCs*"_press_$(t).png")
         WaterLily.@loop sim.flow.σ[I] = WaterLily.curl(3,I,sim.flow.u)*sim.L/sim.U over I ∈ CIs(domain)
-        flood(sim.flow.σ[CIs(domain[1:2]),domain[3]]|>Array,clims=(-20,20))
-        savefig("Disk_"*BCs*"_omega_$(t).png")
+        push!(p,sim.flow.p[CIs(domain[1:2]),domain[3]]|>Array)
+        push!(σ,sim.flow.σ[CIs(domain[1:2]),domain[3]]|>Array)
     end
     jldopen("disk_$(N)D_$(R)R_$(use_biotsavart).jld2", "w") do file
         mygroup = JLD2.Group(file,"case")
         mygroup["forces"] = forces
+        mygroup["σ"] = σ
+        mygroup["p"] = p
     end
 end
-# read results for post processing
+for use_biotsavart in [true]
+    BCs = use_biotsavart ? "biot" : "reflect"
+    jldopen("disk_$(N)D_$(R)R_$(use_biotsavart).jld2","r") do file
+        for t ∈ 1:20
+            p = file["case"]["p"][t]
+            σ = file["case"]["σ"][t]
+            flood(p,clims=(-2,2),cfill=:viridis)
+            savefig("Disk_"*BCs*"_press_$(t).png")
+            flood(σ,clims=(-20,20))
+            savefig("Disk_"*BCs*"_omega_$(t).png")
+            flood(σ,clims=(-20,20))
+            contour!(clamp.(p',-2,2),levels=range(-2,2,length=10),color=:black,
+                     linewidth=0.5,legend=false)
+            savefig("Disk_"*BCs*"_press_omega_$(t).png")
+        end
+    end
+end
+
+
+# # read results for post processing
+a_star = 0.5; Ca = 1.0/3.0
 biot = jldopen("disk_$(N)D_$(R)R_$(true).jld2","r")
-ref = jldopen("disk_$(N)D_$(R)R_$(false).jld2","r")
+# ref = jldopen("disk_$(N)D_$(R)R_$(false).jld2","r")
 forces_biot = reduce(vcat,biot["case"]["forces"]')
-forces_ref = reduce(vcat,ref["case"]["forces"]')
-plot(forces_biot[:,1],forces_biot[:,2]/2π,label="Biot-Savart")
-plot!(forces_ref[:,1],forces_ref[:,2]/2π,label="Reflection")
-xlims!(0,3); ylims!(0,4.0)
-xlabel!("Convective time"); ylabel!("Force/πR²")
-savefig("Disk_$(N)D_force.png")  
+# forces_ref = reduce(vcat,ref["case"]["forces"]')
+plot(forces_biot[:,1],forces_biot[:,2],label="Biot-Savart")
+# plot!(forces_ref[:,1],forces_ref[:,2]*(Ca*a_star),label="Reflection")
+
+# tₐ = 2.0
+# H(x::AbstractFloat) = ifelse(x < 0, zero(x), ifelse(x > 0, one(x), oftype(x,0.5)))
+# Dadiff(t,tₐ=0) = Ca * a_star*(√ν)*(√t - H(t-tₐ)√H(t-tₐ))
+
+# # plot!([0,3],[Ca,Ca],label=:none,ls=:dot,color=:black)
+# xlims!(0,3); ylims!(0,4)
+# xlabel!("Convective time"); ylabel!("( F/ρU²R² )/ Ca")
+# savefig("Disk_$(N)D_force.png")
