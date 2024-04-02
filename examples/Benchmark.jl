@@ -10,7 +10,8 @@ getf(str) = eval(Symbol(str))
 backend_str = Dict(Array => "CPUx$(Threads.nthreads())", CuArray => "GPU")
 
 # the functions we want to benchamrk
-circ(;D=64,n=5,m=3,Re=200,U=1,mem=CuArray) = Simulation((n*D,m*D), (U,0), D; body=AutoBody((x,t)->√sum(abs2,x.-m*D÷2)-D÷2),ν=U*D/Re,mem)
+# circ(;D=64,n=5,m=3,Re=200,U=1,mem=CuArray) = Simulation((n*D,m*D), (U,0), D; body=AutoBody((x,t)->√sum(abs2,x.-m*D÷2)-D÷2),ν=U*D/Re,mem)
+circ(;D=64,n=5,m=3,Re=200,U=1,mem=CuArray) = Simulation((n*D,m*D,m*D), (U,0,0), D; body=AutoBody((x,t)->√sum(abs2,x.-m*D÷2)-D÷2),ν=U*D/Re,mem)
 function reflect_sim_step!(sim::Simulation,ω,t_end;max_steps=typemax(Int))
     while sim_time(sim) < t_end && length(sim.flow.Δt) <= max_steps
         mom_step!(sim.flow,sim.pois)
@@ -36,7 +37,7 @@ function add_to_suite!(suite, case, domains; s=100, D=64, ft=Float32, backend=Ar
     bstr = backend_str[backend]
     suite[bstr] = BenchmarkGroup([bstr])
     for (n,m) in domains
-        sim = circ(D,n,m); ω = MLArray(sim.flow.σ);
+        sim = circ(D=D,n=n,m=m); ω = ntuple(i->MLArray(sim.flow.σ),3) #ω = MLArray(sim.flow.σ);
         suite[bstr][repr(n)*"x"*repr(m)] = BenchmarkGroup([repr(n)*"x"*repr(m)])
         @add_benchmark $getf($case)($sim, $ω, $typemax($ft); max_steps=$s) $(get_backend(sim.flow.p)) suite[bstr][repr(n)*"x"*repr(m)] case
     end
@@ -47,7 +48,7 @@ cases=["reflect_sim_step!", "biot_sim_step!"]
 max_steps = [1000,1000]
 ftype = [Float32,Float32]
 backend = CuArray
-domains = [[(5,3) (8,5) (10,8) (20,16) (30,24)],[(5,3) (8,5) (10,8)]]
+domains = [[(5,3) (8,5) (10,8)],[(5,3) (8,5) (10,8)]]
 
 # Generate benchmarks
 function benchmark()
@@ -55,12 +56,11 @@ function benchmark()
         println("Benchmarking: $(case)")
         suite = BenchmarkGroup()
         results = BenchmarkGroup([case, "mom_step!", backend_str[backend], string(VERSION)])
-        # generte the stuff we need
-        sim = circ(); ω = MLArray(sim.flow.σ);
+        sim = circ(); ω = ntuple(i->MLArray(sim.flow.σ),3) #ω = MLArray(sim.flow.σ);
         getf(case)(sim, ω, typemax(ft); max_steps=1) # warm up
         add_to_suite!(suite, case, domain; s=s, ft=ft, backend=backend) # create benchmark
         results[backend_str[backend]] = run(suite[backend_str[backend]], samples=1, evals=1, seconds=1e6, verbose=true) # run!
-        fname = "$(case)_$(n)x$(m)_$(s)_$(ft)_$(backend_str[backend])_$VERSION.json"
+        n,m =domain; fname = "$(case)_$(n)x$(m)_$(s)_$(ft)_$(backend_str[backend])_$VERSION.json"
         BenchmarkTools.save(fname, results)
     end
 end
