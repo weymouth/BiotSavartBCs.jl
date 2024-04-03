@@ -1,9 +1,49 @@
-\documentclass{article}
+%% 
+%% Copyright 2007-2020 Elsevier Ltd
+%% 
+%% This file is part of the 'Elsarticle Bundle'.
+%% ---------------------------------------------
+%% 
+%% It may be distributed under the conditions of the LaTeX Project Public
+%% License, either version 1.2 of this license or (at your option) any
+%% later version.  The latest version of this license is in
+%%    http://www.latex-project.org/lppl.txt
+%% and version 1.2 or later is part of all distributions of LaTeX
+%% version 1999/12/01 or later.
+%% 
+%% The list of all files belonging to the 'Elsarticle Bundle' is
+%% given in the file `manifest.txt'.
+%% 
 
-\usepackage{PRIMEarxiv}
+%% Template article for Elsevier's document class `elsarticle'
+%% with numbered style bibliographic references
+%% SP 2008/03/01
+%%
+%% 
+%%
+%% $Id: elsarticle-template-num.tex 190 2020-11-23 11:12:32Z rishi $
+%%
+%%
+\documentclass[preprint,12pt]{elsarticle}
 
-\usepackage[utf8]{inputenc} % allow utf-8 input
-\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+%% Use the option review to obtain double line spacing
+%% \documentclass[authoryear,preprint,review,12pt]{elsarticle}
+
+%% Use the options 1p,twocolumn; 3p; 3p,twocolumn; 5p; or 5p,twocolumn
+%% for a journal layout:
+%% \documentclass[final,1p,times]{elsarticle}
+%% \documentclass[final,1p,times,twocolumn]{elsarticle}
+%% \documentclass[final,3p,times]{elsarticle}
+%% \documentclass[final,3p,times,twocolumn]{elsarticle}
+%% \documentclass[final,5p,times]{elsarticle}
+%% \documentclass[final,5p,times,twocolumn]{elsarticle}
+
+%% For including figures, graphicx.sty has been loaded in
+%% elsarticle.cls. If you prefer to use the old commands
+%% please give \usepackage{epsfig}
+
+%% The amssymb package provides various useful mathematical symbols
+\usepackage{amssymb}
 \usepackage{hyperref}       % hyperlinks
 \usepackage{url}            % simple URL typesetting
 \usepackage{booktabs}       % professional-quality tables
@@ -16,81 +56,117 @@
 \usepackage{subcaption}
 \usepackage{transparent}
 \usepackage{color}
-\graphicspath{{media/}}     % organize your images and other figures under media/ folder
-\renewcommand{\baselinestretch}{1.5} 
+%% The amsthm package provides extended theorem environments
+%% \usepackage{amsthm}
 
-%Header
-\pagestyle{fancy}
-\thispagestyle{empty}
-\rhead{ \textit{ }} 
-% Update your Headers here
-\fancyhead[LO]{Far-field potential flow conditions for Immersed Cartesian meshes}
-% \fancyhead[RE]{Firstauthor and Secondauthor} % Firstauthor et al. if more than 2 - must use \documentclass[twoside]{article}
+%% The lineno packages adds line numbers. Start line numbering with
+%% \begin{linenumbers}, end it with \end{linenumbers}. Or switch it on
+%% for the whole article with \linenumbers.
+%% \usepackage{lineno}
 
-
-
-  
-%% Title
-\title{Simulations of unbounded external flows on using minimal Eulerian grids
-%%%% Cite as
-%%%% Update your official citation here when published 
-\thanks{\textit{\underline{Citation}}: 
-\textbf{Authors. Title. Pages.... DOI:000000/11111.}} 
-}
-
-\author{
-    Gabriel D. Weymouth\\
-    Faculty of Mechanical Engineering (mE) \\
-    Delft University of Technology, Delft, Netherlands \\
-    \texttt{G.D.Weymouth@tudelft.nl} \\
-    \AND
-    Marin Lauber\\
-    Faculty of Mechanical Engineering (mE) \\
-    Delft University of Technology, Delft, Netherlands \\
-    \texttt{M.Lauber@tudelft.nl} \\
-  %% \AND
-  %% Coauthor \\
-  %% Affiliation \\
-  %% Address \\
-  %% \texttt{email} \\
-  %% \And
-  %% Coauthor \\
-  %% Affiliation \\
-  %% Address \\
-  %% \texttt{email} \\
-  %% \And
-  %% Coauthor \\
-  %% Affiliation \\
-  %% Address \\
-  %% \texttt{email} \\
-}
-
+\journal{Journal of Computational Physics}
 
 \begin{document}
-\maketitle
 
+\begin{frontmatter}
+
+%% Title, authors and addresses
+
+%% use the tnoteref command within \title for footnotes;
+%% use the tnotetext command for theassociated footnote;
+%% use the fnref command within \author or \address for footnotes;
+%% use the fntext command for theassociated footnote;
+%% use the corref command within \author for corresponding author footnotes;
+%% use the cortext command for theassociated footnote;
+%% use the ead command for the email address,
+%% and the form \ead[url] for the home page:
+%% \title{Title\tnoteref{label1}}
+%% \tnotetext[label1]{}
+%% \author{Name\corref{cor1}\fnref{label2}}
+%% \ead{email address}
+%% \ead[url]{home page}
+%% \fntext[label2]{}
+%% \cortext[cor1]{}
+%% \affiliation{organization={},
+%%             addressline={},
+%%             city={},
+%%             postcode={},
+%%             state={},
+%%             country={}}
+%% \fntext[label3]{}
+
+\title{Potential flow boundary conditions for the incompressible Navier-Stokes equations}
+
+%% use optional labels to link authors explicitly to addresses:
+%% \author[label1,label2]{}
+%% \affiliation[label1]{organization={},
+%%             addressline={},
+%%             city={},
+%%             postcode={},
+%%             state={},
+%%             country={}}
+%%
+%% \affiliation[label2]{organization={},
+%%             addressline={},
+%%             city={},
+%%             postcode={},
+%%             state={},
+%%             country={}}
+
+\author[inst1]{Gabriel D. Weymouth}
+\author[inst1]{Marin Lauber}
+
+\affiliation[inst1]{organization={Ship Hydormechanics},%Department and Organization
+            addressline={Faculty of Mechanical Engineering (mE),\\Delft University of Technology}, 
+            city={Delft},
+            country={Netherlan}}
 
 \begin{abstract}
-We introduce a novel boundary condition formulation for external flow simulations on Eulerian grids that maintains high accuracy results even when the domain boundary is close to the immersed solid boundaries. The boundary condition is formulated using a \emph{Biot-Savart} vorticity integral inside the fluid domain along with the incompressible and irrotational flow conditions outside the domain. These conditions are incorporated in a general projection-based fluid flow solver using the standard velocity-pressure Eulerian fields. We use a multilevel approach to reduce the computational cost of the evaluation of the \emph{Biot-Savart} integral from $O(N^2)$ to $O(N\log N)$ and formally bound the associated error. We demonstrate the ability of the method to correctly impose far-field with multiple examples of vortex formation flows and drag and thrust wakes,  potential flow boundary conditions with domain size significantly smaller than when standard boundary conditions are used. Finally, we study the sensitivity of deflected wakes to the new domain boundary conditions. 
+%% Text of abstract
+We introduce a novel boundary condition formulation that enables reducing the size of the computational domain of a fluid flow simulation without deterioration of the simulation due to the presence of the domain boundaries near the body. We formulate the novel boundary condition as the solution to a \emph{Biot-Savart} integral inside the computational domain. We use a multilevel approach to reduce the computational cost of the evaluation of the \emph{Biot-Savart} integral from $O(N^2)$ to $O(N\log N)$ and formally prove that the error associated with this approximation is low. We then show our novel boundary conditions can be incorporated within a projection-based flow solver. With multiple examples of vortex formation and wake flows, we demonstrate the ability of the method to correctly impose far-field potential flow boundary conditions with domain sizes significantly smaller than when standard boundary conditions are used. The approach is insensitive the the Reynolds number of the flow and allows for medium Reynolds number simulation of confined vorticity cases. Finally, we study the effect of our small computational domain on various wake flow examples.
 \end{abstract}
 
+%%Graphical abstract
+\begin{graphicalabstract}
+\includegraphics[width=1.1\textwidth]{tex/fig/disk_high_re_7.png}
+\end{graphicalabstract}
 
-% keywords can be removed
-\keywords{Biot-Savart \and Boundary Condition \and Projection Method \and Unbounded Domains}
+%%Research highlights
+\begin{highlights}
+\item Potential flow boundary via \emph{Biot-Savart} integral enables minimal computational domains
+\item Fast ($N^{\cal S}\log N$) multilevel evaluation of the \emph{Biot-Savart} integral.
+\item Remove blockage effects introduced by reflective boundary conditions
+\end{highlights}
+
+\begin{keyword}
+%% keywords here, in the form: keyword \sep keyword
+Biot-Savart \sep Boundary Condition \sep Projection Method \sep Unbounded Domains
+%% PACS codes here, in the form: \PACS code \sep code
+\PACS 0000 \sep 1111
+%% MSC codes here, in the form: \MSC code \sep code
+%% or \MSC[2008] code \sep code (2000 is the default)
+\MSC 0000 \sep 1111
+\end{keyword}
+
+\end{frontmatter}
+
+%% \linenumbers
+
+%% main text
 
 \section{Introduction}
 % introduce the problem
-Numerical solutions to a continuum problem in an unbounded domain occur in numerous scientific fields, such as fluid mechanics, theoretical physics \cite{Levy2022SolvingMethod}, and electromagnetism \cite{}. To obtain a numerical solution to this continuum problem, common practice to introduce two approximations. First, the continuum is approximated by a discrete set of equations, and second, the unbounded domain is truncated to a much smaller computational domain. While the former does not usually introduce large errors, the latter can significantly impact the numerical solution to the continuum problem when this truncated domain is not \emph{sufficiently large}. In the context of computational fluid dynamics, \emph{sufficiently large} means that the decaying potential flow induced by the body (or equivalently, in immersed-boundary methods, the system of forces) and the advection/diffusion of vorticity through the domain's boundary have no influence on the forces experienced by the body \cite{Colonius2008}.
+Numerical solutions to a continuum problem in an unbounded domain occur in numerous scientific fields, such as fluid mechanics, theoretical physics, and electromagnetism. To obtain a numerical solution to this continuum problem, common practice is to approximate the continuum problem by a discrete set of equations and truncate the unbounded domain to a finite computational domain. While the former does not usually introduce significant errors, the latter can significantly impact the numerical solution to the continuum problem when this truncated domain is not \emph{sufficiently large}. In the context of computational fluid dynamics, \emph{sufficiently large} means that the decaying potential flow induced by the body (or equivalently for immersed-boundary methods, the system of forces) and the advection/diffusion of vorticity through the domain's boundary have no influence on the forces experienced by the body \cite{Colonius2008}.
 
 % introduce why we need far-field BCs
-In numerical simulations of external incompressible flows, the problem we will focus on, \emph{far-field} boundary conditions, are applied on the (\emph{sufficiently large}) computational domain's exterior. These far-field boundary conditions consist of a known velocity normal to the boundary and a known normal pressure gradient (for a description of the boundary conditions for the incompressible \emph{Navier-Stokes} equations, we refer the reader to \cite{Gresho1987}). While they allow for a finite computational time, these lead to significant errors, particularly the force acting on a body can suffer from severe \emph{blockage effects} when the computational domain is not \emph{sufficiently large} \cite{Colonius2008}. While domain sensitivity study can determine the extent of the blockage effect, there is no \emph{a priori} rule for estimating these errors.
+In numerical simulations of external incompressible flows, the problem we focus on, \emph{far-field} boundary conditions, are applied on the (\emph{sufficiently large}) computational domain's exterior. These far-field boundary conditions consist of a known velocity normal to the boundary and a known normal pressure gradient\footnote{for a description of the boundary conditions for the incompressible \emph{Navier-Stokes} equations, we refer the reader to \cite{Gresho1987}}. These can lead to significant errors, particularly the force acting on a body can suffer from severe \emph{blockage effects} when the computational domain is not \emph{sufficiently large} \cite{Colonius2008}. While domain sensitivity study can determine the extent of the blockage effect, there is no \emph{a priori} rule for estimating the magnitude of these errors.
 
 % what have people been doing
-Numerous methods have been proposed to solve this issue for external incompressible flows and for unbounded continuum equations more generally. One method used to reduce the source of both these errors is to use rectilinear grid stretching to maximize the domain size and minimize the error at the far-field while maintaining a high-resolution uniform grid around the body, see \cite{Maertens2015, Lauber2022}. However, this method requires correct stretching ratios to avoid excessive numerical dissipation or reflection inside the domain. The method is also inefficient in cases where the body undergoes substantial motion within that domain, for example, when tracking the motion of a kite, which requires a sizeable uniform domain and an even larger stretched region. Grid stretching can also be replaced with buffer layer methods that apply a filter to the equations and mimic unbounded domains \cite{Colonius2002ADomains}, however, the method is limited to compressible flows, which are out of the scope of this paper.
+Numerous methods have been proposed to solve this issue for external incompressible flows. One method used to reduce the source of both these errors is to use rectilinear grid stretching to maximize the domain size and minimize the error at the far-field while maintaining a high-resolution uniform grid around the body, see \cite{Maertens2015, Lauber2022}. However, this method requires correct stretching ratios to avoid excessive numerical dissipation or reflection inside the domain. The method is also inefficient in cases where the body undergoes substantial motion within that domain, for example, when tracking the motion of a kite, which requires a sizeable uniform domain and an even larger stretched region. Grid stretching can also be replaced with buffer layer methods that apply a filter to the equations and mimic unbounded domains \cite{Colonius2002ADomains}, however, the method is limited to compressible flows, which are out of the scope of this paper.
 
 % proposed to use a coordinate transform to effectively map the computational domain's boundary to infinity and apply the true boundary condition there. However, this approach is limited to trivial one-dimensional cases and cannot be extended to three-dimensional flow simulations. Similarly, methods where a limited number of dimensions are unbounded have been successfully proposed. 
-While methods exist for incompressible flow problems unbounded in one \cite{Grosch1977NumericalTransforms, Levy2022SolvingMethod} or two directions \cite{Rennich1997NumericalDirections}, a method that enables accurate modeling of a flow unbounded in all directions still lacks. The approach ue in these methods is to either use coordinate transforms to map the unbounded domain onto the interval $[0,1]$, or use analytical potential flow solution in the unbounded directions based on the classical decomposition of the velocity field into
-\begin{equation}
+While methods exist for incompressible flow problems unbounded in one \cite{Grosch1977NumericalTransforms, Levy2022SolvingMethod} or two directions \cite{Rennich1997NumericalDirections}, a method that enables accurate modeling of a flow unbounded in all directions still lacks. The approach used in these methods is to either use coordinate transforms to map the unbounded domain onto the interval $[0,1]$, or use analytical potential flow solution in the unbounded directions based on the classical decomposition of the velocity field into
+\begin{equation}\label{eq:u_vort}
     \vec{u} = \vec{u}_\omega + \nabla\phi + \vec{U}_\infty = -\nabla^{-2}\left(\nabla \times \vec{\omega}\right) + \nabla\phi + \vec{U}_\infty
 \end{equation}
 where $\vec{u}_\omega$ is the vortical component, $\nabla\phi$ is the potential component and $\vec{U}_\infty$ is the free-stream velocity. Fourier-based methods can then be used to solve for the vortical and potential s of the velocity field. Matching the internal and external solution and their derivatives on the domain's boundary closes the system, and the unbounded boundary condition is satisfied on the domain's exterior, at the cost of an augmented system of equations.
@@ -101,12 +177,12 @@ where $\vec{u}_\omega$ is the vortical component, $\nabla\phi$ is the potential 
 % \end{equation}
 % By solving the Laplace equation $\nabla^2\phi=0$ is cylindrical coordinates via Fourier expansions, the velocity potential can be expressed in terms of Bessel functions of the first and second kind. Matching the internal and external solution and their derivatives on the domain's boundary closes the system, and the unbounded boundary condition is satisfied on the domain's exterior at the cost of an augmented system of equation.
 
-When analytical expression for the potential and vortical component cannot be obtained simply, a large coarse grid can provide boundary conditions to a relatively small, well-resolved domain. This is the basis of the multi-domain method proposed in \cite{Colonius2008}. The method places a small, well-resolved, around the immersed body and interpolates the coarse solution to the finer domain's wall, providing artificial far-field boundary conditions to the innermost domain (the finest). The method is attractive as the computational cost on the coarse domain can be significantly reduced. 
+When analytical expression for the potential and vortical component cannot be obtained simply, a large coarse grid can provide boundary conditions to a relatively small, well-resolved domain. This is the basis of the multi-domain method proposed in \cite{Colonius2008}. The method places a small, well-resolved, around the immersed body and interpolates the coarse solution to the finer domain's wall, providing artificial far-field boundary conditions to the innermost domain (the finest). The method is attractive as the computational cost on the coarse domain can be significantly reduced.
 
-\cite{Liska2014AEquations} applied to incompressible flows with immersed-boundaries \cite{Liska2017AFunctions} \cite{Liska2016ADomains}
+Lattice Green's function (LGFs) on unbounded domains have been successfully applied to solving constant coefficient elliptic equations on unbounded domain \cite{Liska2014AEquations}. The idea here is to evaluate the discrete Laplacian via the fundamental solution to the discrete Laplacian operator (LGFs). The resulting convolution can then be accelerated by an asymptotic expansion of the convolution kernel. Points close to the source are evaluated with the discrete kernel (accurate) while points far away are evaluated with the asymptotic expansion (fast). These methods rely on the unbounded properties of the LGFs and have been able tp simulate unbounded viscous incompressible flow \cite{Liska2016ADomains} and flows with immersed-boundaries \cite{Liska2017AFunctions}. However, they are based on the solution of inhomogeneous, linear, constant coefficient elliptic equations and are thus incompatible with some immersed-boundary methods \cite{Maertens2015}.
 
-\cite{Tsynkov1998NumericalReview}
 
+% \cite{Tsynkov1998NumericalReview}
 
 Other methods leverage the strength of an Eulerian-based solver for the near body and Lagrangian solvers for the far wake by coupling a near wall Eulerian solver to a Vortex particle method in the wake \cite{Billuart2023AFlows}. They enable tracking the coarser wake for an extended time while enabling accurate modeling of the developing boundary layer on the object's surface. However, several (user-defined) parameters are required to correctly interpolate the Vortex particle method solution onto the Eulerian mesh. Extension to three-dimensional flow is possible but will significantly increase the computational cost.
 
@@ -126,11 +202,11 @@ In this manuscript, we propose a novel method for imposing external potential-fl
     \label{Fig_1}
 \end{figure}
 
-We start by describing the governing equation and their numerical solution.
-The flow is governed by the \emph{Navier-Stokes} equations for an incompressible flow. We discretize these equations on a staggered finite-volume mesh. The resulting system of equations is solved within a computational domain $\Omega(N)$, where $N$ is the dimension of the problem. The outer domain boundary is denoted at $\partial\Omega(N^{1/2})$. The primary source of vorticity in the domain is an immersed body $\mathcal{B}$ with outer (wet) surface $\partial\mathcal{B}$ and unit normal vector $\hat n$, see Figure~\ref{Fig_1}.
+We start by describing the governing equations and their numerical solution.
+The flow is governed by the \emph{Navier-Stokes} equations for an incompressible flow. We discretize these equations on a staggered finite-volume mesh. The resulting system of equations is solved within a computational domain $\Omega(N)$, where $N$ is the number of degrees of freedom of the problem. The outer domain boundary is denoted at $\partial\Omega(N^{\cal S})$, where $\cal S$ is a factor  linked to the dimensions of the problem $d$ by $\mathcal{S}=(3d-5)/2$. The primary source of vorticity in the domain is an immersed body $\mathcal{B}$ with outer (wet) surface $\partial\mathcal{B}$ and unit normal vector $\hat n$, see Figure~\ref{Fig_1}.
 
 We use the standard projection scheme \cite{Chorin1967} to solve the coupled velocity-pressure system inside a predictor-correct scheme to achieve second-order temporal convergence of the flow variables \cite{Lauber2022}. 
-To simplify the discussion, we present the method for the first step of the predictor-corrector scheme, generalization to the second-order Heun's corrector method or higher-order time integration method is trivial. While the latter part of the paper will model the immersed body via the Boundary-data immersion method \cite{Maertens2015}, we generalize this discussion to body-fitted methods.
+To simplify the discussion, we present the method for the first step of the predictor-corrector scheme; generalization to the second-order Heun's corrector method or higher-order time integration method is trivial. While the latter part of the paper will model the immersed body via the Boundary-data immersion method \cite{Maertens2015}, we generalize this discussion to body-fitted methods.
 The projection method starts with an explicit estimate of the intermediate velocity field $u^*$
 \begin{align}\label{eq:intermediate}
     \vec{u}^* = \vec{u}\,^t + \int_{t}^{t+\Delta t}\frac{1}{Re}\nabla^2\vec{u} -\left(\vec{u}\cdot\nabla\right)\vec{u}\text{ d}t &\quad\forall\ \vec{x}\in\Omega (N),
@@ -139,22 +215,22 @@ where $Re$ is the Reynolds number of the flow. Depending on the choice of integr
 \begin{equation}
     \vec{u}^* = \vec{U}_b \quad \forall x \in \partial\cal{B}.
 \end{equation}$U_b$ 
-where $\vec{U}_b$ is the body velocity. Body-fitted methods enforce this condition exactly, while immersed boundary methods enforce it either through an additional forcing term that appears in Equ.~\ref{eq:intermediate} \cite{Lauber2022}, or by modifying the discretized equation near $\cal{B}$ \cite{Direct-Forcing}.
+where $\vec{U}_b$ is the body velocity. Body-fitted methods enforce this condition exactly, while immersed boundary methods enforce it either through an additional forcing term that appears in Equ.~\ref{eq:intermediate} \cite{Peskin2010}, or by modifying the discretized equation near $\cal{B}$ \cite{Lee2015}.
 
-Additionally, Equ.~\ref{eq:intermediate} must be supplemented with far-field boundary condition on the domain's outer boundaries
+Additionally, Equ.~\ref{eq:intermediate} must be supplemented with far-field boundary conditions on the domain's outer boundaries
 \begin{align}\label{eq:BC_1}
-    \frac{\partial \vec{u}^*_s}{\partial \hat{n}} = 0,\ \vec{u}^*_n = U_n &\quad\forall\ \vec{x}\in\partial\Omega (N^{1/2}),
+    \frac{\partial \vec{u}^*_s}{\partial \hat{n}} = 0,\ \vec{u}^*_n = U_n &\quad\forall\ \vec{x}\in\partial\Omega (N^{\cal S}),
 \end{align}
-where we have decomposed the velocity field on the boundary in a boundary normal $\vec{u}^*_n$ and tangential part $\vec{u}^*_s$. We refer the reader to \cite{Gresho1987} for a discussion of pressure boundary conditions in the projection method.
+where we have decomposed the velocity field on the boundary in a boundary normal $\vec{u}^*_n$ and tangential part $\vec{u}^*_s$. We refer the reader to \cite{Gresho1987} for a discussion of pressure boundary conditions on the domain's exterior.
 
-Projection of the divergent velocity field onto the solenoidal space is achieved by computing a pressure field $p$ that removes the non-solenoidal part of the intermediate velocity field to arrive to the final velocity field
+Projection of the divergent velocity field onto the solenoidal space is achieved by computing a pressure field $p$ that removes the divergent part of the intermediate velocity field
 \begin{align}\label{eq:poisson}
       &\nabla\cdot\frac{\Delta t}{\rho}\nabla p = \nabla\cdot \vec{u}^* &\quad\forall\ \vec{x}\in\Omega (N),\\
       &\vec{u}^{t+\Delta t} = \vec{u}^*-\frac{\Delta t}{\rho}\nabla p &\quad\forall\ \vec{x}\in\Omega (N),
 \end{align}
 also subject to the standard boundary condition
 \begin{align}\label{eq:BC_2}
-      &\frac{\partial \vec{u}^{t+\Delta t}_s}{\partial \hat{n}} = 0,\ \vec{u}^{t+\Delta t}_n = U_n &\quad\forall\ \vec{x}\in\partial\Omega (N^{1/2}).
+      &\frac{\partial \vec{u}^{t+\Delta t}_s}{\partial \hat{n}} = 0,\ \vec{u}^{t+\Delta t}_n = U_n &\quad\forall\ \vec{x}\in\partial\Omega (N^{\cal S}).
 \end{align}
 %Is there a $\partial\Omega$ equation to reduce blockage with $O(N)$ cost?
 % We note that Eq.~\ref{eq:poisson} is a variable-coefficient Poisson equation for the pressure (through $\mu_0$), which will become important later in the discussion.
@@ -176,13 +252,13 @@ As mentioned previously, the boundary $\partial\Omega$ must be placed sufficient
 %     \label{fig:ml_array}
 % \end{figure}
 
-We propose to replace the standard free-slip (or reflection) boundary conditions typically applied on the domain's exterior (Equ.~\ref{eq:BC_1} \& ~\ref{eq:BC_2}) by a \emph{Biot-Savart integral} of the vorticity inside the domain, implicitly assuming the flow external to the domain is irrotational (and that the flow is incompressible everywhere. This is the case for the flow around accelerated bodies, when the timescale follows $\frac{tU}{L}<\sim 4$. In this case, we can obtain the velocity induced by the vorticity contained within the domain at a point $\vec x$ on the boundary $\partial\Omega$ from a Green's function solution to the vorticity equation Eq.~\ref{eq:u_vort}
+We propose to replace the standard free-slip (or reflection) boundary conditions typically applied on the domain's exterior (Equ.~\ref{eq:BC_1} \& ~\ref{eq:BC_2}) by a \emph{Biot-Savart integral} of the vorticity inside the domain, implicitly assuming the flow external to the domain is irrotational (and that the flow is incompressible everywhere). This is the case for the flow around accelerated bodies when the timescale is $\frac{tU}{L}\lesssim t^{\text{crit.}}$, with $t^{\text{crit.}}$ the critical time for vortex detachment \cite{Shusser2000EnergyRing}. In this case, we can obtain the velocity induced by the vorticity contained within the domain at a point $\vec x$ on the boundary $\partial\Omega$ from a Green's function solution to the vorticity equation Equ.~\ref{eq:u_vort}
 \begin{equation}\label{eq:Biot}
-    {\vec u}({\vec x}) = f(\vec x; \vec\omega,\Omega) = \int_\Omega K_{n}({\vec x} - \vec{y})\times \vec\omega({\vec y})\text{ d}\vec{y} \quad\quad \forall \vec x\, \in \partial\Omega (N^{1/2})
+    {\vec u}({\vec x}) = f(\vec x; \vec\omega,\Omega) = \int_\Omega K_{n}({\vec x} - \vec{y})\times \vec\omega({\vec y})\text{ d}\vec{y} \quad\quad \forall \vec x\, \in \partial\Omega (N^{\cal S})
 \end{equation}
 where $K_n$ is the $n$-dimensional Biot-Savart kernel. This kernel takes the following form \cite{Eldredge2019MathematicalFlows}
 \begin{equation}
-    2D:\quad K\equiv -\frac{\vec{r}}{2\pi|\vec{r}|^2}, \qquad\qquad 3D:\quad K\equiv -\frac{\vec{r}}{4\pi|\vec{r}|^3}.
+    2D:\quad K(\vec r)\equiv -\frac{\vec{r}}{2\pi|\vec{r}|^2}, \qquad\qquad 3D:\quad K(\vec r)\equiv -\frac{\vec{r}}{4\pi|\vec{r}|^3}.
 \end{equation}
 
 On a staggered grid, we need only apply the integral equation \ref{eq:Biot} to compute the velocity induced by the vorticity on the single component normal to the domain face. For ghost cells external to the computational domain, we use the local derivative conditions $\nabla\cdot\vec{u} = \nabla\times\vec{u}=0$ to compute the velocity. These conditions are consistent with the assumption that the flow is potential outside the domain, as well as being trivial to compute. Specifically, we apply the zero curl condition to all tangential velocity components in the ghost cells and then the zero divergence condition to the normal components in the ghost cells, marching away from the domain boundary.
@@ -204,7 +280,7 @@ On a staggered grid, we need only apply the integral equation \ref{eq:Biot} to c
     \label{Fig_2}
 \end{figure}
 
-A key ingredient in our multilevel algorithm is the balance between accuracy and computational efficiency. The aim of this method is to reduce computational time compared to a large grid by providing a way of estimating the far-field boundary conditions. However, evaluation of these far-field boundary conditions has a significant cost. A naive evaluation of Eq.~\theequation~ would result in $N^{3/2}$ computation in two-dimensions and would be counter-productive in most cases. In vortex-particle methods, this infinite integral is standard and usually evaluated with \emph{Fast Multipole Method} that allows reducing this cost to $N^{1/2}\log N$ operations. Here, we use a multigrid algorithm to achieve the same reduction in operation.
+A key ingredient in our multilevel algorithm is the balance between accuracy and computational efficiency. The aim of this method is to reduce computational time compared to a large grid by providing a way of estimating the far-field boundary conditions. However, evaluation of these far-field boundary conditions has a significant cost. A naive evaluation of Eq.~\theequation~ would result in $N^{3/2}$ computation in two-dimensions and would be counter-productive in most cases. In vortex-particle methods, this infinite integral is standard and usually evaluated with \emph{Fast Multipole Method} that allows reducing this cost to $N^{\cal S}\log N$ operations. Here, we use a multigrid algorithm to achieve the same reduction in operation.
 
 % This is controlled by a criterion that triggers the evaluation of the velocity on progressively finer meshes. Given a point $x$ where the velocity induced by the vorticity blob located at $x_\omega$, the induced velocity is evaluated on the multilevel if the point $x_\omega$ falls in a box of size $\pm R_\text{kernel}$ around that point, see Fig.~\ref{fig:code_snippet}
 
@@ -237,7 +313,7 @@ With this finite $l$ set of non-overlapping domains $\mathcal{D}^{(i)}$ the inte
 \end{equation}
 To determine if the vorticity at a point $\vec y$ is evaluated on the $l^{th}$ level or a coarser level, we determine if point $\vec y$ lies within a bounding box, centered on $\vec x$ with half-width $S^{(l)}$. A point that lies within the box if all of its coordinates fall below that of $S^{(l)}$, that is $\text{all}(\vec{y}<{S}^{(l)})$. To avoid having to define a new bounding box dimension for each multilevel, we normalize ${S}^{(l)}$ with the cell size on that level $\Delta h^{(l)} = \Delta x^{(l)} = \Delta y^{(l)} (= \Delta z^{(l)}) = 2^{l-1}$ (two to the power of $l-1$), giving us a non-dimensional bounding box of half-width 
 \begin{equation}\label{eq:bbox}
-    \tilde{S} = \frac{{S}^{(l)}}{2^{1-l}},
+    \tilde{S} = \frac{{S}^{(l)}}{2^{l-1}},
 \end{equation}
 in what follows, we will assume that all dimensions compared to the bounding box are also normalized by cell size at that level.
 
@@ -245,65 +321,47 @@ The cost and accuracy of the summation in Eq.~\ref{eq:biot_sum} is linked to the
 
 \paragraph{Analysis of error associated with a certain kernel}
 
-We now discuss the choice of bonding box size $|\vec{S}|$ that maximizes the accuracy of the integral while reducing computational costs. From Fig~\ref{Fig_2}, it is clear that evaluation of the vorticity field onto the coarsest level will introduce smearing of any strong shear layer or vorticity blob. We show that with careful selection of $\vec{S}$, we can minimize these errors.
+We now discuss the choice of bounding box size $\tilde{S}$ that maximizes the accuracy of the integral while reducing computational costs. From Fig~\ref{Fig_2}, it is clear that evaluation of the vorticity field onto the coarsest level will introduce smearing of any strong shear layer or vorticity blob. We show that with careful selection of $\tilde{S}$, these errors can be minimized and large gains in computational time can be obtained.
 
-We start by assuming that the vorticity field on the finest level si exact. The choice of $\vec{S}$ will thus influence the error we make by approximating the induced velocity at a point $\vec y$ by evaluating it on gradually coarser meshes, compared to evaluating it on the finest mesh.
+We start by assuming that the vorticity field on the finest level is exact. We aim to derive an expression for the error in the induced velocity at a point $\vec x$ by evaluating the integral on gradually coarser meshes.
 
-Within our multilevel algorithm, cells sufficiently far away is grouped with their neighbors to form a cell 4 times bigger in 2D and 8 times bigger in 3D. For simplicity, we discuss the 2D case, extensions to the 3D case are trivially obtained by alternating the out of plane vector, see below. Assuming the vorticity in these cells can be represented by point vortices with circulation $\Gamma_i$, the new (merged) point vortex now has circulation $\Gamma$ 
-\begin{equation}
-    \Gamma = \sum_{i=1}^{4}\Gamma_i,
-\end{equation}
-and is located at point $\vec{y}$. The induced velocity by this point vortex at location $\vec x$, is thus given by
+Within our multilevel algorithm, cells sufficiently far away are grouped with their neighbors to form a cell 4 times bigger in 2D and 8 times bigger in 3D. For simplicity, we discuss the 2D case. Extension to the 3D case is trivial and only requires alternating the out-of-plane vector and using the corresponding vorticity component. Assuming the vorticity in these cells can be represented by point vortices with circulation $\Gamma_i$, the new (merged) point vortex on a coarser level has circulation $\Gamma^{(l+1)} =\sum_{i\in\mathcal{D}^{(l)}}\Gamma^{(l)}_i$, and is located at point $\vec{y}$. The induced velocity by this point vortex at location $\vec x$, is thus given by (see Fig.~\ref{Fig_2})
 \begin{equation}\label{eq:induced_1}
-    \vec{u}(\vec{x}) = \frac{\vec{y}-\vec{x}}{2\pi|\vec{y}-\vec{x}|^2}\times\vec{e}_z\Gamma = \frac{\vec{r}}{2\pi|\vec{r}|^2}\times\vec{e}_z\sum_{i=1}^{4}\Gamma_i
+    \vec{u}^{(l+1)}(\vec{x}) = \frac{\vec{y}-\vec{x}}{2\pi|\vec{y}-\vec{x}|^2}\times\vec{e}_z\Gamma^{(l+1)} = \frac{\vec{r}}{2\pi|\vec{r}|^2}\times\vec{e}_z\sum_{i\in\mathcal{D}^{(l)}}\Gamma^{(l)}_i
 \end{equation}
-where we have substituted $\vec{r}=\vec{y}-\vec{x}$ and $\vec{e}_z$ the the out-of-plane unit vector. For 3D flow, each component can be reconstructed by alternating the out-of-plane vector between $\vec{e}_x$, $\vec{e}_y$ and $\vec{e}_z$ and using the corresponding vorticity component. The actual velocity induced by these four point-vortices (before we grouped them) is given by
+where we have substituted $\vec{r}=\vec{y}-\vec{x}$ and $\vec{e}_z$ the the out-of-plane unit vector. The actual velocity induced by these four point-vortices evaluated on level $l$ is given by
 \begin{equation}
-    \vec{u}^e(\vec{x}) = \sum_{i=1}^{4}\frac{\vec{r}_i}{2\pi|\vec{r}_i|^2}\times\vec{e}_z\Gamma_i,
+    \vec{u}^{(l)}(\vec{x}) = \sum_{i\in\mathcal{D}^{(l)}}\frac{\vec{r}_i}{2\pi|\vec{r}_i|^2}\times\vec{e}_z\Gamma^{(l)}_i,
 \end{equation}
-where $\vec{r}_i=\vec{y}_i-\vec{x}$. We can further decompose this expression by noting that $\vec{r}_i=\vec{y}-\vec{x}-\vec{\delta r}_i=\vec{r}-\vec{\delta r}_i$, where $\vec{y}$ is the position of the geometric center of the 4 point vortex (where we merge them into the bigger one). Substitution in Eq.~\theequation~ gives
-\begin{equation}
-    \vec{u}^e(\vec{x}) = \sum_{i=1}^{4}\frac{\vec{r}-\vec{\delta r}_i}{2\pi|\vec{r}-\vec{\delta r}_i|^2}\times\vec{e}_z\Gamma_i.
-\end{equation}
+where $\vec{r}_i=\vec{y}_i-\vec{x}$. We can further decompose this expression by noting that $\vec{r}_i=\vec{y}-\vec{x}-\vec{\delta r}_i=\vec{r}-\vec{\delta r}_i$, where $\vec{y}$ is the position of the geometric center of the 4 point vortices. 
+% Substitution in Equ.~\theequation~ gives
+% \begin{equation}
+    % \vec{u}^{(l)}(\vec{x}) = \sum_{i\in\mathcal{D}^{(l)}}\frac{\vec{r}-\vec{\delta r}_i}{2\pi|\vec{r}-\vec{\delta r}_i|^2}\times\vec{e}_z\Gamma^{(l)}_i.
+% \end{equation}
 For sufficiently large $\vec{r}$ we can assume that $|\vec{r}|\approx|\vec{r}-\vec{\delta r}_i|$ %and thus we have
 % \begin{equation}
-%     \vec{u}^e(\vec{x}) = \sum_{i=1}^{4}\frac{\vec{r}-\vec{\delta r}_i}{2\pi|\vec{r}|^2}\times\vec{e}_z\Gamma_i.
+%     \vec{u}^{(l)}(\vec{x}) = \sum_{i\in\mathcal{D}^{(l)}}\frac{\vec{r}-\vec{\delta r}_i}{2\pi|\vec{r}|^2}\times\vec{e}_z\Gamma_i.
 % \end{equation}
 which allows us to separate the kernel's influence into two parts
 \begin{equation}
-    \vec{u}^e(\vec{x}) = \sum_{i=1}^{4}\frac{\vec{r}}{2\pi|\vec{r}|^2}\times\vec{e}_z\Gamma_i-\sum_{i=1}^{4}\frac{\vec{\delta r}_i}{2\pi|\vec{r}|^2}\times\vec{e}_z\Gamma_i.
+    \vec{u}^{(l)}(\vec{x}) = \sum_{i\in\mathcal{D}^{(l)}}\frac{\vec{r}}{2\pi|\vec{r}|^2}\times\vec{e}_z\Gamma^{(l)}_i-\sum_{i\in\mathcal{D}^{(l)}}\frac{\vec{\delta r}_i}{2\pi|\vec{r}|^2}\times\vec{e}_z\Gamma^{(l)}_i.
 \end{equation}
-After rearrangement, the first term equals Equ.~\ref{eq:induced_1}. The second term is the error we make by approximating the integral over numerous points by one over a single point-vortex. In the limit of extremely fine grid ($|\delta \vec{r}_i|=0$) or zero vorticity ($\Gamma_i=0$) away from the point of evaluation, this error vanishes, as expected. 
+After rearrangement, the first term equals Equ.~\ref{eq:induced_1}. The second term is the error made by the multilevel approximation. The magnitude of this error
+\begin{equation}
+    \varepsilon(\vec{x})^{(l)} = 
+    \sum_{i\in\mathcal{D}^{(l)}}\frac{\vert\vec{\delta r}_i\vert}{2\pi|\vec{r}|^2}\Gamma^{(l)}_i,
+\end{equation}
+as $\vec{e}_z$ has unit magnitude. On uniform Cartesian meshes, $\vert\vec{\delta r}_i^{(l)}\vert\sim^{l}$, while $|\vec{r}|^d \sim 2^{d\times l}\tilde{S}^d$, with $d$ the dimension of the problem. An upper bound for the total error in the induced velocity at a point $\vec x$ due to the $l$-level evaluation of the \emph{Biot-Savart} integral is
+\begin{equation}
+    \varepsilon(\vec{x}) \approx \frac{1}{2\pi\tilde{S}^2}\sum_{l=2}^{N_l}\frac{1}{2^l}\sum_{i\in\mathcal{D}^{(l)}}\Gamma^{(l)}_i.
+\end{equation}
+which decays as $\tilde{S}^{-2}$. The innermost sum is a decreasing fraction of the total vorticity contained in the domain $\mathcal{D}^{(l)}$. As expected, taking $\tilde{S}>\text{Domain}$ yields $\varepsilon(\vec{x}) = 0$, and as $\Gamma_i \to 0, \varepsilon(\vec{x})\to 0$, finally as $\tilde{S}\to0, \varepsilon(\vec{x}) \to \infty$. Similarly, in 3D the upper bound for the error is given by
+\begin{equation}
+    \varepsilon(\vec{x}) \approx \frac{1}{4\pi\tilde{S}^3}\sum_{l=2}^{N_l}\frac{1}{2^{2l}}\sum_{i\in\mathcal{D}^{(l)}}\Gamma^{(l)}_i.
+\end{equation}
+which decays as $\tilde{S}^{-3}$. Similarly, the innermost sum is a (even smaller) decreasing fraction of total vorticity contained in each level, improving the method's accuracy in 3D compared to 2D.
 
-Ultimately, we are interested in the magnitude of this error
-\begin{equation}
-    \varepsilon(\vec{x}) = \sum_{i=1}^{4}\vert\frac{\vec{\delta r}_i}{2\pi|\vec{r}|^2}\times\vec{e}_z\Gamma_i\vert = 
-    \sum_{i=1}^{4}\frac{\vert\vec{\delta r}_i\vert}{2\pi|\vec{r}|^2}\Gamma_i,
-\end{equation}
-as $\vec{e}_z$ does not contribute to the magnitude of the error. On uniform Cartesian meshes, we can relate the distance from the $i^{th}$ point-vortex to the cell center with the grid size on the $l$-level, $\vert\vec{\delta r}_i^{(l)}\vert=2^{l-3/2}$ (similarly in 3D we get $\vert\vec{\delta r}_i^{(l)}\vert=2^{l-3/2}\sqrt{3}$). The error introduced by the multilevel pooling of the vorticity field on the $l$-level is
-\begin{equation}
-    \varepsilon(\vec{x})^{(l)} = \sum_{i=1}^{4(l-1)}\frac{2^{l-3/2}}{2\pi|\vec{r}|^2}\Gamma_i.
-\end{equation}
-% \begin{equation}
-%     \varepsilon(\vec{x})^{(l)} = \sum_{i=1}^{4(l-1)}\frac{\sqrt{2}\Delta x}{4\pi|\vec{r}|^2}\Gamma_i=\frac{\sqrt{2}\Delta x}{4\pi|\vec{r}|^2}\sum_{i=1}^{4}\Gamma_i,
-% \end{equation}
-The level at which the vorticity is evaluated depends on the bounding box $\tilde{S}$ at each level. This criterion provides an upper bound for the error carried from level $l$ onto the induced velocity at $\vec x$ as $|\vec{r}|^2 \approx 2^{2l-2}\tilde{S}^2$ using Equ.~\ref{eq:bbox}. The upper bound error is
-\begin{equation}
-    \varepsilon(\vec{x})^{(l)} = \frac{2^{l-3/2}}{2\pi\cdot2^{2l-2}\cdot\tilde{S}^2}\sum_{i=1}^{4(l-1)}\Gamma_i = \frac{2^{3/2}}{2^{l}\pi\tilde{S}^2}\sum_{i=1}^{4(l-1)}\Gamma_i.
-\end{equation}
-Finally, the upper bound for the total error in the induced velocity at a point $\vec x$ due to the $l$-level evaluation of the \emph{Biot-Savart} integral is
-\begin{equation}
-    \varepsilon(\vec{x}) = \sum_{l=1}^{N_l}\frac{2^{3/2}}{2^{l}\pi\tilde{S}^2}\sum_{i=1}^{4(l-1)}\Gamma_i = \frac{2^{3/2}}{\pi\tilde{S}^2}\sum_{l=1}^{N_l}\frac{1}{2^l}\sum_{i=1}^{4(l-1)}\Gamma_i.
-\end{equation}
-which decays as $\tilde{S}^{-2}$. As expected, taking $\tilde{S}>\text{Domain}$ yields $\varepsilon(\vec{x}) = 0$, and as $\Gamma_i \to 0, \varepsilon(\vec{x})\to 0$, finally as $\tilde{S}\to0, \varepsilon(\vec{x}) \to \infty$. Similarly, in 3D the error is given by
-\begin{equation}
-    \varepsilon(\vec{x}) = \frac{2^{3/2}\sqrt{3}}{\pi\tilde{S}^3}\sum_{l=1}^{N_l}\frac{1}{2^{l}}\sum_{i=1}^{8(l-1)}\Gamma_i.
-\end{equation}
-which decays as $\tilde{S}^{-3}$. 
-
-The cost of the evaluation of the \emph{Biot-Savart} integral is also proportional to the bounding box dimension. Each level contains approximately $\tilde{S}^d$ points, with $d$ the dimension of the problem. Using a $l$-level mutligrid will result in roughly $\tilde{S}^d\times l$ operations. The maximum number of levels is given by $l=N/\tilde{S}$. The total cost is thus $\tilde{S}^{d-1}N$
-
-which is much lower than the total number of operations required to evaluate Equ.~\ref{eq:Biot} without a multilevel approach.
+% The cost of the evaluation of the \emph{Biot-Savart} integral is also proportional to the bounding box dimension. Each level contains approximately $\tilde{S}^d$ points, with $d$ the dimension of the problem. Using a $l$-level mutligrid will result in roughly $\tilde{S}^d\times l$ operations. The maximum number of levels is given by $l=N/\tilde{S}$. The total cost is thus $\tilde{S}^{d-1}N$ which is much lower than the total number of operations required to evaluate Equ.~\ref{eq:Biot} without a multilevel approach.
 
 
 % Let $\vec{S}^{l}$ be the distance criterion on level $l$, the total error is a sum of all the errors in the $N_l$ lower level of the multigrid
@@ -346,23 +404,23 @@ Substitution of the \emph{Biot-Savart} boundary condition (Eq.~\ref{eq:Biot}) in
 \textbf{Biot-Savart intermediate step}
 \begin{align}
     &\vec{u}^* = \vec{u}\,^t + \int_{t}^{t+\Delta t}\frac{1}{Re}\nabla^2\vec{u} -\left(\vec{u}\cdot\nabla\right)\vec{u}\text{ d}t &\quad\forall\ \vec{x}\in\Omega (N),\\
-    &\vec{u}^* = f(\vec{x},\nabla\times \vec{u}^*,\Omega) &\quad\forall\ \vec{x}\in\partial\Omega (N^{1/2})
+    &\vec{u}^* = f(\vec{x},\nabla\times \vec{u}^*,\Omega) &\quad\forall\ \vec{x}\in\partial\Omega (N^{\cal S})
 \end{align}
 where the exterior boundary condition have been computed from the intermediate velocity $\vec{u}^*$ in the domain. The projection step, however, results in a coupling between the body and the domain's boundary through the pressure field
 \begin{align}
   &\nabla\cdot\frac{\Delta t}{\rho}\nabla p = \nabla\cdot \vec{u}^* &\forall\ \vec{x}\in\Omega (N)\\
   &\vec{u}^{t+\Delta t} = \vec{u}^*-\frac{\Delta t}{\rho}\nabla p &\quad\forall\ \vec{x}\in\Omega (N)\\
-  &\vec{u}^{t+\Delta t} = f(\vec{x},\nabla\times \vec{u}^{t+\Delta t},\Omega)= \vec{u}^*-f(\vec{x},\nabla\times\frac{\Delta t}{\rho}\nabla p,\Omega) &\quad\forall\ \vec{x}\in\partial\Omega (N^{1/2}).
+  &\vec{u}^{t+\Delta t} = f(\vec{x},\nabla\times \vec{u}^{t+\Delta t},\Omega)= \vec{u}^*-f(\vec{x},\nabla\times\frac{\Delta t}{\rho}\nabla p,\Omega) &\quad\forall\ \vec{x}\in\partial\Omega (N^{\cal S}).
 \end{align}
-Away from the body, the source term in the \emph{Biot-Savart} integral in Equ.~\theequation~ vanishes> However, due to the pressure boundary condition on the immersed body ($\partial p/\partial\hat{n}=\text{d}\vec{U}_b/\text{d}t$), a thin layer of vorticity is generated by the pressure gradient term that changes the induced velocity field on the outer domain's boundary. The projection steps and the \emph{Biot-Savart} boundary conditions now form a fixed-point system
+Away from the body, the source term in the \emph{Biot-Savart} integral in Equ.~\theequation~ vanishes. However, due to the pressure boundary condition on the immersed body ($\partial p/\partial\hat{n}=\hat{n}\cdot(\nabla^2\vec{u}/Re-\text{D}\vec{U}_b/\text{D}t)$), a thin layer of vorticity is generated by the pressure gradient term that changes the induced velocity field on the outer domain's boundary. The projection steps and the \emph{Biot-Savart} boundary conditions now form a fixed-point system
 
 \textbf{Biot-Savart projection step}
 \begin{align}
-    &\nabla\cdot\frac{\Delta t}{\rho}\nabla p = \nabla\cdot \vec{u}^*-\nabla\cdot f(\vec{x},\nabla\times\frac{\Delta t}{\rho}\nabla p,\Omega) &\quad\forall\ \vec{x}\in\Omega, \vec{x}\in\partial\Omega\ (N)\\
-    &\vec{u}^{t+\Delta t} = \vec{u}^*-\frac{\Delta t}{\rho}\nabla p &\quad\forall\ \vec{x}\in\Omega (N)\\
-    &\vec{u}^{t+\Delta t} = f(\vec{x},\nabla\times \vec{u}^{t+\Delta t},\Omega)= \vec{u}^*-f(\vec{x},\nabla\times\frac{\Delta t}{\rho}\nabla p,\Omega) &\quad\forall\ \vec{x}\in\partial\Omega (N^{1/2}).
+    &\nabla\cdot\frac{\Delta t}{\rho}\nabla p = \nabla\cdot \vec{u}^*-\nabla\cdot f(\vec{x}_b,\nabla\times\frac{\Delta t}{\rho}\nabla p,\Omega) \quad\forall\ \vec{x}\in\Omega, \vec{x}_b\in\partial\Omega\ (N^{\cal S})\\
+    &\vec{u}^{t+\Delta t} = \vec{u}^*-\frac{\Delta t}{\rho}\nabla p \qquad\qquad\qquad\qquad\qquad\forall\ \vec{x}\in\Omega (N)\\
+    &\vec{u}^{t+\Delta t} = f(\vec{x},\nabla\times \vec{u}^{t+\Delta t},\Omega)= \vec{u}^*-f(\vec{x}_b,\nabla\times\frac{\Delta t}{\rho}\nabla p,\Omega) \quad\forall\ \vec{x}_b\in\partial\Omega (N^{\cal S}).
 \end{align}
-This coupling only occurs on the domain's boundary, and the resulting system is mildly non-linear. This weak non-linearity can be solved efficiently with the deferred correction method and does not require Newton-type methods that will prevent us from using a standard Poisson solver for the pressure. An explicit update of the source term of the Poisson problem during each pressure solver iteration ensures that the divergence-free constraint is respected and that this thin layer of vorticity is properly accounted for. In immersed boundary methods, this coupling is only apparent if the pressure boundary conditions are correctly imposed on the immersed body during the projection step; see for example \cite{Taira2007, Lauber2022}.
+This coupling only occurs on the domain's boundary, and the resulting system is mildly non-linear. This weak non-linearity can be solved efficiently with a deferred correction approach, which explicitly updates the source term of the Poisson problem during each pressure solver iteration. This ensures that the divergence-free constraint is respected and does not require Newton-type methods that would prevent using a standard Poisson solver for the pressure. This coupling is only apparent in immersed boundary methods if the pressure boundary conditions are correctly imposed on the immersed body during the projection step; see for examples \cite{Taira2007, Lauber2022}.
 
 \section{Multilevel reconstruction validation}
 
@@ -379,8 +437,7 @@ The velocity field generated by the Lamb-Chaplygin dipole is obtained from the s
     U\left(\frac{R^2}{r}-r\right), \quad \text{for} \quad r \ge R,    \end{cases}
 \end{equation}
 %Meleshko, V. V.; Heijst, G. J. F. van (August 1994). "On Chaplygin's investigations of two-dimensional vortex structures in an inviscid fluid". Journal of Fluid Mechanics. 272: 157–182. Bibcode:1994JFM...272..157M. doi:10.1017/S0022112094004428. ISSN 1469-7645. S2CID 123008925.
-where $J_0$ and $J_1$ are the zeroth and first Bessel functions of the first kind, respectively. $\beta$ is a parameter with the value $\beta=1.2197\pi/R$. The vortex posses an \emph{atmosphere}, defined by the isoline $\psi(r=R)=0$, that delimits the inside and outside of the vortex.
-
+where $J_0$ and $J_1$ are the zeroth and first Bessel functions of the first kind, respectively. $\beta$ is a parameter with the value $\beta=1.2197\pi/R$. The core of the vortex is defined by the isoline $\psi(r=R)=0$, that delimits the inside and outside of the vortex.
 
 \begin{figure}
 \begin{subfigure}{.5\textwidth}
@@ -403,14 +460,14 @@ where $J_0$ and $J_1$ are the zeroth and first Bessel functions of the first kin
   \includegraphics[width=\linewidth]{tex/fig/lamb_dipole_error_dist128.png}
   \caption{}
 \end{subfigure}
-\caption{$L_2$-norm of the error in reconstructed velocity field outside the atmosphere of the 2D Lamb-Chaplygin vortex for varying (multi-level) kernel size. Error bars are shown in log-scale.}
+\caption{$L_2$-norm of the error in reconstructed velocity field outside the core of the 2D Lamb-Chaplygin vortex for varying (multi-level) kernel size. Error bars are shown in log-scale.}
 \label{fig:lam_error_dist}
 \end{figure}
 
-We reconstruct the velocity field outside the vortex's atmosphere using the internal vorticity and our multilevel Biot-Savart method and compare that to the analytic result. The dependency of the absolute error in the reconstructed velocity field on the radius of the multilevel refinement criterion are shown in Fig.~\ref{fig:lam_error_dist}. Setting the refine size $\tilde{S}$ to the domain size $\cal D$ eliminates the multi-level-error, but the result is not exact since the analytic vorticity distribution is sampled on a finite grid of size $\Delta x=0.05
-R$. This error depends primarily on the distance from the vortex, Fig.~\ref{fig:lam_error_dist}(d). Progressively reducing the refinement size $S/\Delta x$ introduces the multilevel error quantified in the previous section, which is only weakly dependant on the distance to the vortex.
+We reconstruct the velocity field outside the vortex core using the internal vorticity and our multilevel Biot-Savart method and compare that to the analytic result. The dependency of the absolute error in the reconstructed velocity field on the radius of the multilevel refinement criterion are shown in Fig.~\ref{fig:lam_error_dist}. Setting the refine size $\tilde{S}$ to the domain size $\cal D$ eliminates the multi-level-error, but the result is not exact since the analytic vorticity distribution is sampled on a finite grid of size $\Delta x=0.05
+R$. This error depends primarily on the distance from the vortex, Fig.~\ref{fig:lam_error_dist}(d). Progressively reducing the refinement size $\tilde{S}$ introduces the multilevel error quantified in the previous section, which is only weakly dependent on the distance to the vortex.
 
-This is further quantified in Fig.~\ref{fig:error_lamb_2}(a) which shows the maximum error in the reconstructed velocity field at distance $d$ from the vortex from the Lamb-Chaplygin vortex. The size $S/\Delta x$ is show to dominate the reconstruction error, with a fairly uniform total error levels once $S/\Delta x \le 2^3 = 8$. Fig.~\ref{fig:error_lamb_2}(a) reports the measure computational speed-up acheived by the multilevel method relative to setting $S=\cal D$, demonstrating up to 300x acceleration.
+This is further quantified in Fig.~\ref{fig:error_lamb_2}(a), which shows the maximum error in the reconstructed velocity field at a distance $d$ from the vortex from the Lamb-Chaplygin vortex. The size $\tilde{S}$ is shown to dominate the reconstruction error, with fairly uniform total error levels once $\tilde{S} \le 2^3 = 8$. Fig.~\ref{fig:error_lamb_2}(a) reports the measured computational speed-up achieved by the multilevel method relative to setting $\tilde{S}=\cal D$, demonstrating up to 300$\times$ acceleration.
 
 \begin{figure}
     \centering
@@ -439,9 +496,9 @@ and the stream function
      \,\,\frac{U}{2}\left(1-\frac{r^3}{R^3}\right)r^2sin^2\theta \quad \text{for} \, r > R.
     \end{cases}
 \end{equation}
-with the corresponding errors and speed up shown in Figure~\ref{fig:error_hill_3}. Note that the analytic vorticity of the hill vortex is discontinuous, increasing the truncation error near the vortex compared to the smooth Lamp-vortex, a problem which would not be observed with any real three-dimensional viscous flow.
+with the corresponding errors and speed-up shown in Figure~\ref{fig:error_hill_3}. Note that the analytic vorticity of the hill vortex is discontinuous, increasing the truncation error near the vortex compared to the smooth Lamp-vortex, a problem which would not be observed with any real three-dimensional viscous flow.
 
-As argued in Sec.~\ref{sec:Biot_projection} the multilevel error decreases extremely quickly as $S/\Delta x$ is increased for three-dimensional flows. This is due to the scaling of the \emph{Biot-Savart} kernel itself. Similarly, the speed-up is much faster in 3D because each doubling gathers 8 cells instead of 4, with a max observed speed-up of nearly 20,000x using the multilevel method.
+As argued in Sec.~\ref{sec:Biot_projection} the multilevel error decreases extremely quickly as $\tilde{S}$ is increased for three-dimensional flows. This is due to the scaling of the \emph{Biot-Savart} kernel itself. The 3D case demonstrates a stronger sensitivity to the distance to vortex, as expected from the error estimate. Similarly, the speed-up is much faster in 3D because each doubling gathers 8 cells instead of 4, with a max observed speed-up of nearly 20,000$\times$ using the multilevel method.
 
 \begin{figure}
     \centering
@@ -499,7 +556,7 @@ Figure~\ref{fig:disk_flow_1}-\ref{fig:disk_flow_2} shows the vorticity and press
     \label{fig:disk_flow_1}
 \end{figure}
 
-Zero point for time. Xu and Nietsche paper 2015.
+% Zero point for time. Xu and Nietsche paper 2015.
 
 Fig.~\ref{fig:disk_forces} shows the time trace of the pressure force acting on the accelerated disk. The difference in the pressure field is found again in the difference in the forces. Here, the \emph{Biot-Savart} boundary condition can exactly recover the added-mass force on the first time step, while the reflective boundary condition overestimates it. For larger $t^*$, the effect of the boundary condition is still observable; the reflective boundary condition significantly overestimates the pressure forces
 
@@ -563,7 +620,7 @@ To demonstrate the ability of our method to deal with highly separated and turbu
         \centering
         \includegraphics[width=\textwidth]{tex/fig/disk_high_re_7.png}
     \end{subfigure}
-    \caption{Isocontour of $\lambda_2$-criterion $\lambda_2U^2/L^2=...$ for the flow around an initially stationary square plate at $Re=125\,000$ accelerated from rest in a quiescent flow at 6 convective times, $t^*\in [1,2,3,4,5,6]$, using the \emph{Biot-Savart} boundary conditions. The black frame represents the entire computational domain of size ($2L\times2L\times2L$)}
+    \caption{Isocontour of $\lambda_2$-criterion $\lambda_2L^2/U^2=-2.7\times10^{-7}$ for the flow around an initially stationary square plate at $Re=125\,000$ accelerated from rest in a quiescent flow at 6 convective times, $t^*\in [1,2,3,4,5,6]$, using the \emph{Biot-Savart} boundary conditions. The black frame represents the entire computational domain of size ($2L\times2L\times2L$). An animation of these still images in provided in the supplementary material.}
     \label{fig:disk_flow_3}
 \end{figure}
 
@@ -577,11 +634,11 @@ Numerous examples of external flow violate our initial assumption that the vorti
 
 We start our analysis with the flow behind a 2D circular cylinder of diameter $D$. The cylinder is immersed in a viscous fluid with free-stream velocity $U=(1,0)$. The viscosity is set such that the Reynolds number is $Re=\frac{UD}{\nu}=200$. We perform a domain study by varying the domain sizes from $5D\times3D$ up to $30D\times24D$ and, for each domain, compare the reflective and \emph{Biot-Savart} boundary conditions.
 
-Figure.~\ref{fig:} flow vis
-
 Figure~\ref{fig:cylinder_force} shows the total drag force acting on the cylinder for the various domain sizes and boundary conditions. The different domain sizes and the \emph{Biot-Savart} boundary conditions yield the best results with an excellent collapse of the drag forces, regardless of the domain size. Simulations performed with the \emph{Biot-Savart} boundary conditions are insensitive to domain size. Reflective boundary conditions induce extremely large blockage effects for small domains and only slowly converge to the \emph{Biot-Savart} boundary solution for significantly larger domains.
 
-We note here that the computational time for the smaller domain that uses the \emph{Biot-Savart} boundary conditions is equivalent to that of \textbf{add computational time}. However, the convergence of the results with domain size is far superior.
+Additionaly, we compare the results obtained with a grid aligned with the mean flow direction to results obtained on a $7L\times 7L$ domain where the flow direction is $\vec{U}=(1/\sqrt{2},1/\sqrt{2})$ with the \emph{Biot-Savart} boundary conditions. Results are also presented in Fig.~\ref{fig:cylinder_force} and are almost indistinguishable from the results using the aligned domain.
+
+% We note here that the computational time for the smaller domain that uses the \emph{Biot-Savart} boundary conditions is equivalent to that of \textbf{add computational time}. However, the convergence of the results with domain size is far superior.
 
 In addition to the total drag forces acting on the cylinder, we look at the vortex shedding frequency in the wake. Here again, the \emph{Biot-Savart} boundary conditions show an excellent collapse of the shedding frequency, which matches that of classical bluff body vortex shedding frequency of $St\sim 0.3$ \cite{}. The high blockage effect induced by the reflective boundary conditions induces fast flow around the cylinder, increasing the shedding frequency to higher values with reflective boundary conditions.
 
@@ -595,15 +652,15 @@ In addition to the total drag forces acting on the cylinder, we look at the vort
         \centering
         \includegraphics[width=\textwidth]{tex/fig/fft.png}
     \end{subfigure}%
-    \caption{(left) Drag force acting on the circular cylinder at $Re=200$ for various combinations of boundary conditions and domain size. The rotated domain consists of a $4D\times4D$ domain, with the cylinder centered at $1.5D\times1.5D$ and a free stream velocity of $U=(1/\sqrt2,1/\sqrt2)$. (right) The frequency spectrum of the wake of the cylinder for the same combination of boundary conditions and domain size shows the classical shedding frequency at $St=0.3$.}
+    \caption{(left) Drag force acting on the circular cylinder at $Re=200$ for various combinations of boundary conditions and domain size. The rotated domain consists of a $4D\times4D$ domain, with the cylinder centered at $1.5D\times1.5D$ and a free stream velocity of $\vec{U}=(1/\sqrt2,1/\sqrt2)$. (right) The frequency spectrum of the wake of the cylinder for the same combination of boundary conditions and domain size shows the classical shedding frequency at $St=0.3$.}
     \label{fig:cylinder_force}
 \end{figure}
 
-These results suggest that, for drag wake at least, the wake history on the immersed body is very small. However, propulsive systems use thrust wakes where wake history is expected to be higher.
+These results suggest that, for drag wakes at least, the wake history on the immersed body is very small. However, propulsive systems use thrust wakes where wake history is expected to be higher.
 
 \subsection{Wake behind a heaving foil}
 
-We continue our analysis with thrust wakes. We immerse a rigid foil of length $L$ moving with a linear velocity $\vec{U}=(U,0)$ in a viscous fluid. In addition to it's steady forward speed, the foil undergoes a pure heave motion of amplitude $h_0$
+We continue our analysis with thrust wakes. We immerse a rigid foil of length $L$ moving with a linear velocity $\vec{U}=(U,0)$ in a viscous fluid. In addition to its steady forward speed, the foil undergoes a pure heave motion of amplitude $h_0$
 \begin{equation}
     y(t) = h_0 \sin(2\pi f t)
 \end{equation}
@@ -622,7 +679,7 @@ For $St<0.5$, we observe almost no difference between the different boundary con
     \begin{subfigure}{.48\textwidth}
         \centering
         \includegraphics[trim={2.8cm 2cm 4cm 2cm},clip,width=\textwidth]{tex/fig/Deflected_wake_snap_small.png}
-        \caption{Reflection - near wake}
+        \caption{Reflection ($30L\times20L$) - near wake}
     \end{subfigure}
     \begin{subfigure}{.48\textwidth}
         \centering
@@ -673,13 +730,57 @@ Surpisingly, for vortex street applications, the method demonstrates its robustn
 
 We believe that for confined vorticity application, such as accelerated bodies in the initial phase ($t^*<10$), when the vorticity is still confined to the body, this method is promising.
 
-% \section*{Acknowledgments}
-% This was supported in part by......
+% %% The Appendices part is started with the command \appendix;
+% %% appendix sections are then done as normal sections
+% \appendix
 
+% \section{Sample Appendix Section}
+% \label{sec:sample:appendix}
 
-%Bibliography
-\bibliographystyle{unsrt}  
-\bibliography{references}  
+% Ultimately, we are interested in the magnitude of this error
+% \begin{equation}
+%     \varepsilon(\vec{x}) = \sum_{i=1}^{4}\vert\frac{\vec{\delta r}_i}{2\pi|\vec{r}|^2}\times\vec{e}_z\Gamma_i\vert = 
+%     \sum_{i=1}^{4}\frac{\vert\vec{\delta r}_i\vert}{2\pi|\vec{r}|^2}\Gamma_i,
+% \end{equation}
+% as $\vec{e}_z$ does not contribute to the magnitude of the error. On uniform Cartesian meshes, we can relate the distance from the $i^{th}$ point-vortex to the cell center with the grid size on the $l$-level, $\vert\vec{\delta r}_i^{(l)}\vert=2^{l-3/2}$ (similarly in 3D we get $\vert\vec{\delta r}_i^{(l)}\vert=2^{l-3/2}\sqrt{3}$). The error introduced by the multilevel pooling of the vorticity field on the $l$-level is
+% \begin{equation}
+%     \varepsilon(\vec{x})^{(l)} = \sum_{i=1}^{4(l-1)}\frac{2^{l-3/2}}{2\pi|\vec{r}|^2}\Gamma_i.
+% \end{equation}
+% % \begin{equation}
+% %     \varepsilon(\vec{x})^{(l)} = \sum_{i=1}^{4(l-1)}\frac{\sqrt{2}\Delta x}{4\pi|\vec{r}|^2}\Gamma_i=\frac{\sqrt{2}\Delta x}{4\pi|\vec{r}|^2}\sum_{i=1}^{4}\Gamma_i,
+% % \end{equation}
+% The level at which the vorticity is evaluated depends on the bounding box $\tilde{S}$ at each level. This criterion provides an upper bound for the error carried from level $l$ onto the induced velocity at $\vec x$ as $|\vec{r}|^2 \approx 2^{2l-2}\tilde{S}^2$ using Equ.~\ref{eq:bbox}. The upper bound error is
+% \begin{equation}
+%     \varepsilon(\vec{x})^{(l)} = \frac{2^{l-3/2}}{2\pi\cdot2^{2l-2}\cdot\tilde{S}^2}\sum_{i=1}^{4(l-1)}\Gamma_i = \frac{2^{3/2}}{2^{l}\pi\tilde{S}^2}\sum_{i=1}^{4(l-1)}\Gamma_i.
+% \end{equation}
+% Finally, the upper bound for the total error in the induced velocity at a point $\vec x$ due to the $l$-level evaluation of the \emph{Biot-Savart} integral is
+% \begin{equation}
+%     \varepsilon(\vec{x}) = \sum_{l=1}^{N_l}\frac{2^{3/2}}{2^{l}\pi\tilde{S}^2}\sum_{i=1}^{4(l-1)}\Gamma_i = \frac{2^{3/2}}{\pi\tilde{S}^2}\sum_{l=1}^{N_l}\frac{1}{2^l}\sum_{i=1}^{4(l-1)}\Gamma_i.
+% \end{equation}
+% which decays as $\tilde{S}^{-2}$. As expected, taking $\tilde{S}>\text{Domain}$ yields $\varepsilon(\vec{x}) = 0$, and as $\Gamma_i \to 0, \varepsilon(\vec{x})\to 0$, finally as $\tilde{S}\to0, \varepsilon(\vec{x}) \to \infty$. Similarly, in 3D the error is given by
+% \begin{equation}
+%     \varepsilon(\vec{x}) = \frac{2^{3/2}\sqrt{3}}{\pi\tilde{S}^3}\sum_{l=1}^{N_l}\frac{1}{2^{l}}\sum_{i=1}^{8(l-1)}\Gamma_i.
+% \end{equation}
+% which decays as $\tilde{S}^{-3}$. 
 
+%% If you have bibdatabase file and want bibtex to generate the
+%% bibitems, please use
+%%
+ \bibliographystyle{elsarticle-num} 
+ \bibliography{references}
 
+%% else use the following coding to input the bibitems directly in the
+%% TeX file.
+
+% \begin{thebibliography}{00}
+
+% %% \bibitem{label}
+% %% Text of bibliographic item
+
+% \bibitem{}
+
+% \end{thebibliography}
 \end{document}
+\endinput
+%%
+%% End of file `elsarticle-template-num.tex'.
