@@ -19,8 +19,8 @@ custom_attrib = Dict(
     "Lambda" => lamda
 )# this maps what to write to the name in the file
 # make the writer
-# writer = vtkWriter("Disk_high_Re_2"; attrib=custom_attrib,
-                #    dir="/scratch/marinlauber/vtk_data")
+writer = vtkWriter("Disk_high_Re_3"; attrib=custom_attrib,
+                   dir="/scratch/marinlauber/vtk_data")
 
 CIs = CartesianIndices
 N = 3*2^7; R = N/4
@@ -29,18 +29,22 @@ use_biotsavart = true
 sim = make_sim_acc(mem=CUDA.CuArray;N,R,Re=125_000);
 ω = ntuple(i->MLArray(sim.flow.σ),3)
 
-# restart from file
-using ReadVTK
-wr = restart_sim!(sim;fname="Disk_high_Re_2_restart.pvd",
-                  attrib=custom_attrib)
-
 @show y⁺(sim)
-for t in range(0,6;step=0.02)#1:6
+forces = []
+for t in range(0,10;step=0.02)#1:6
     while sim_time(sim)<t #sim_step!(sim,t)
         measure!(sim,sum(sim.flow.Δt)) # update the body compute at timeNext
-        use_biotsavart ? biot_mom_step!(sim.flow,sim.pois,ω) : WaterLily.mom_step!(sim.flow,sim.pois)
+        biot_mom_step!(sim.flow,sim.pois,ω)
+        f = -2WaterLily.∮nds(sim.flow.p,sim.flow.f,sim.body,sum(sim.flow.Δt[1:end-1]))/R^2
+        push!(forces,[sim_time(sim),f[1]])
     end
     write!(writer,sim);
     @show t
+    flush(stdout)
+end
+using JLD2
+jldopen("disk_high_re_forces","w") do file
+    mygroup = JLD2.Group(file,"case")
+    mygroup["forces"] = forces
 end
 close(writer)

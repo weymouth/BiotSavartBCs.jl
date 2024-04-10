@@ -36,21 +36,18 @@ p,ω = fill_hill(N,D);
 btime(b) = minimum(b).time
 duration = [btime(@benchmark m_u_ω(1,$R[1],$ω,$dist)) for dist ∈ 2 .^ collect(0:pow-1)]
 
-include("TwoD_plots.jl")
-plot(0:7,log10(duration[1]).-log10.(duration),xlabel="log₂(kernel size)",ylabel="log₁₀(speedup)",legend=false)
+using Plots
+plot(0:7,log10(duration[1]).-log10.(duration),xlabel="log₂(size)",ylabel="log₁₀(speedup)",legend=false)
 savefig("Hill_speedup_dists.png")
 
 # Check error scaling with dist
-@inline sdf(I) = √sum(abs2,loc(0,I) .- (N-2)/2) - D/2;
-@inline J(I) = I+CartesianIndex(0,N÷2,0)
+@inline sdf(I) = √sum(abs2,loc(0,I) .- (N-2)/2) - D/2; @inline J(I) = I+CartesianIndex(0,N÷2,0)
 function hill_error(ω,N,D,U=(0,0,1);dist=4)
     uλ = hill_vortex(N;D)
     @inline ϵ(i,I,ω) = uλ(i,loc(0,I))-U[i]-m_u_ω(i,I,ω,dist)
     p = zeros(Float64,(N,1,N))
-    for i ∈ 1:3
-        @WaterLily.loop p[I] += ifelse(sdf(J(I))>1,ϵ(i,J(I),ω)^2,0.0) over I in CartesianIndices(p)
-    end
-    return .√p
+    WaterLily.@loop (p[I] = sdf(J(I))>1 ? √(ϵ(1,J(I),ω)^2+ϵ(2,J(I),ω)^2+ϵ(3,J(I),ω)^2) : 0) over I ∈ CartesianIndices(p)
+    return p
 end
 
 pow = 8; N,D = 2^pow+2,2^(pow-3)
@@ -58,23 +55,21 @@ pmap(p) = log10(p+10^-6.5)
 dis = range(1,N÷2,length=30)
 stats(p,i) = pmap(maximum(p[I] for I in CartesianIndices(p) if dis[i-1]<sdf(J(I))≤dis[i]))
 
+using JLD2
+# data = load_object("Hill_error_ref.jld2")
 data = []; _,ω = fill_hill(N,D);
+for dist ∈ 2 .^ collect(0:pow-3) # skip the last two lines
 # for dist ∈ 2 .^ collect(0:pow-1) # this takes hours
-for dist ∈ 1:6
     @show dist
     p = hill_error(ω,N,D;dist)
-    flood(pmap.(p[:,1,:]),clims=(-6,-1),border=:none,cfill=:Greens)
-    savefig("Hill_error_dist$(dist).png")
     push!(data,[stats(p,i) for i in 2:lastindex(dis)])
 end
-using JLD2
-save_object("Hill_error.jld2",data)
+save_object("Hill_error.jld2",data) # careful not to overwrite
 
 colors = colormap("Blues",pow+2)
-plt = plot(xlabel="d/D",ylabel="max(log10(|uₑ|/U))",ylims=(-6,-1));
+plt = plot(xlabel="d/2R",ylabel="max(log₁₀(|uₑ|/U))",ylims=(-6,-1));
 for (dist,vec) in enumerate(data)
-    # plot!(plt,collect(dis)[2:end]./D,vec,label="log₂(size)=$(dist-1)",c=colors[2+dist])
-    plot!(plt,collect(dis)[2:end]./D,vec,label="size=$(dist)",c=colors[2+dist])
+    plot!(plt,collect(dis)[2:end]./D,vec,label="log₂(size)=$(dist-1)",c=colors[2+dist])
 end
 plt
 savefig("Hill_error_dists.png")

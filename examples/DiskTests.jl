@@ -1,22 +1,5 @@
 using WaterLily,StaticArrays,CUDA,BiotSavartBCs
 
-_struc_size(s::Union{Function,Tuple,Number,AbstractArray}) = sizeof(s)
-function _struc_size(s::MultiLevelPoisson)
-    tot = 0.0
-    for l in s.levels
-        tot += _struc_size(l)
-    end
-    tot
-end
-function _struc_size(s)
-    tot = 0.0
-    for field in fieldnames(typeof(s))
-        tot += _struc_size(getfield(s,field))
-    end
-    tot
-end
-Base.sizeof(a::Simulation)= round(_struc_size(a)/1e9;digits=4),"GB"
-
 function make_sim(; N=128, R=32, a=0.5, U=1, Re=1e3, mem=Array)
     disk(x,t) = (r = √(x[2]^2+x[3]^2); √(x[1]^2+(r-min(r,R))^2)-1.5)
     s(t) = ifelse(t<U/a,0.5a*t^2,U*(t-0.5U/a)) # displacement

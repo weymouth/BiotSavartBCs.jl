@@ -64,7 +64,7 @@ using JLD2
 save_object("error_dists.jld2",data)
 
 colors = colormap("Blues",pow+2)
-plt = plot(xlabel="d/D",ylabel="max(log10(|uₑ|/U))");
+plt = plot(xlabel="d/2R",ylabel="max(log₁₀(|uₑ|/U))",ylims=(-6,-1),xlims=(0,4));
 for (dist,vec) in enumerate(data[1:end])
     plot!(plt,collect(dis)[2:end]./D,vec,label="log₂(size)=$(dist-1)",c=colors[2+dist])
 end
@@ -72,5 +72,6 @@ plt
 savefig("lamb_dipole_error_dists.png")
 
 # duration = [0.667296,1.090,2.389,6.100,16.800,48.600,122.400,230.400]
-plot(0:7,log10(duration[1]).-log10.(duration),xlabel="log₂(kernel size)",ylabel="log₁₀(speedup)",legend=false)
+plt = plot(xlabel="log₂(size)",ylabel="log₁₀(speedup)",ylims=(-5,0),xlims=(0,8))
+plot!(plt,0:7,log10(duration[1]).-log10.(duration),legend=false)
 savefig("lamb_dipole_speedup_dists.png")
