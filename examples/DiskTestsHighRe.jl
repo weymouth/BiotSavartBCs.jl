@@ -43,7 +43,7 @@ for t in range(0,10;step=0.02)#1:6
     flush(stdout)
 end
 using JLD2
-jldopen("disk_high_re_forces","w") do file
+jldopen("disk_high_re_forces.jld2","w") do file
     mygroup = JLD2.Group(file,"case")
     mygroup["forces"] = forces
 end
