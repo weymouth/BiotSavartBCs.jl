@@ -18,19 +18,20 @@ m_u_ω(i,I,ω,dist) = BiotSavartBCs._u_ω(loc(0,I,Float64),dist,lastindex(ω),in
         @inline (r,I,l=1) -> @inbounds(ω[l][I]*r[i%2+1])/(r'*r+eps(Float64)))*(2i-3)/(2π)
 
 using BenchmarkTools
+btime(b) = minimum(b).time
 function lamb_test(N,D=3N/4,U=(1,0);dist=7)
     uλ = lamb_dipole(N;D)
     u = zeros(Float64,(N,N,2)); apply!(uλ,u)
     ω = MLArray(u[:,:,1]); fill_ω!(ω,u);
 
-    @btime m_u_ω(1,CartesianIndex(2,2),$ω,$dist)
+    time = btime(@benchmark m_u_ω(1,CartesianIndex(2,2),$ω,$dist))
 
     sdf(I) = √sum(abs2,loc(0,I) .- (N-2)/2) - D/2
     ϵ(i,I,ω) = uλ(i,loc(0,I))-U[i]-m_u_ω(i,I,ω,dist)
 
     p = zeros(Float64,(N,N));
     WaterLily.@loop (p[I] = sdf(I)>1 ? √(ϵ(1,I,ω)^2+ϵ(2,I,ω)^2) : 0) over I ∈ inside(p,buff=0)
-    return p
+    return p,time
 end
 function flood(f::Array;shift=(0.,0.),cfill=:RdBu_11,clims=(),levels=10,kv...)
     if length(clims)==2
@@ -51,10 +52,10 @@ dis = range(1,N÷2,length=30)
 d(I) = √sum(abs2,loc(0,I) .- (N-2)/2) - D/2
 stats(p,i) = pmap(maximum(p[I] for I in CartesianIndices(p) if dis[i-1]<d(I)≤dis[i]))
 
-data = []
+data = []; duration = [];
 for dist ∈ 2 .^ collect(0:pow-1)
     @show dist
-    p = lamb_test(N,D;dist)
+    p,time = lamb_test(N,D;dist); push!(duration,time)
     flood(pmap.(p),clims=(-6,-1),border=:none,cfill=:Greens)
     savefig("lamb_dipole_error_dist$(dist).png")
     push!(data,[stats(p,i) for i in 2:lastindex(dis)])
@@ -63,13 +64,14 @@ using JLD2
 save_object("error_dists.jld2",data)
 
 colors = colormap("Blues",pow+2)
-plt = plot(xlabel="d/D",ylabel="max(log10(|uₑ|/U))");
+plt = plot(xlabel="d/2R",ylabel="max(log₁₀(|uₑ|/U))",ylims=(-6,-1),xlims=(0,4));
 for (dist,vec) in enumerate(data[1:end])
     plot!(plt,collect(dis)[2:end]./D,vec,label="log₂(size)=$(dist-1)",c=colors[2+dist])
 end
 plt
 savefig("lamb_dipole_error_dists.png")
 
-duration = [0.667296,1.090,2.389,6.100,16.800,48.600,122.400,230.400]
-plot(0:7,log10(duration[1]).-log10.(duration),xlabel="log₂(kernel size)",ylabel="log₁₀(speedup)",legend=false)
+# duration = [0.667296,1.090,2.389,6.100,16.800,48.600,122.400,230.400]
+plt = plot(xlabel="log₂(size)",ylabel="log₁₀(speedup)",ylims=(-5,0),xlims=(0,8))
+plot!(plt,0:7,log10(duration[1]).-log10.(duration),legend=false)
 savefig("lamb_dipole_speedup_dists.png")

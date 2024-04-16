@@ -29,7 +29,7 @@ centered_curl(i,I,u) = permute((j,k)->∂(k,j,I,u),i)
 @fastmath function ω_from_p(i,I,μ₀,p)
     @inline u(I,i) = @inbounds(-μ₀[I,i]*∂(i,I,p))
     @inline ∂u(i,j,I,u) = (u(I+δ(j,I),i)+u(I+δ(j,I)+δ(i,I),i)
-                 -u(I-δ(j,I),i)-u(I-δ(j,I)+δ(i,I),i))/4
+                          -u(I-δ(j,I),i)-u(I-δ(j,I)+δ(i,I),i))/4
     return permute((j,k)->∂u(k,j,I,u),i)
 end
 

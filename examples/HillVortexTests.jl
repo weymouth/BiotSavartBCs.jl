@@ -37,7 +37,7 @@ btime(b) = minimum(b).time
 duration = [btime(@benchmark m_u_ω(1,$R[1],$ω,$dist)) for dist ∈ 2 .^ collect(0:pow-1)]
 
 using Plots
-plot(0:7,log10(duration[1]).-log10.(duration),xlabel="log₂(kernel size)",ylabel="log₁₀(speedup)",legend=false)
+plot(0:7,log10(duration[1]).-log10.(duration),xlabel="log₂(size)",ylabel="log₁₀(speedup)",legend=false)
 savefig("Hill_speedup_dists.png")
 
 # Check error scaling with dist
@@ -56,18 +56,18 @@ dis = range(1,N÷2,length=30)
 stats(p,i) = pmap(maximum(p[I] for I in CartesianIndices(p) if dis[i-1]<sdf(J(I))≤dis[i]))
 
 using JLD2
-data = load_object("Hill_error.jld2")
-# data = []; _,ω = fill_hill(N,D);
-# for dist ∈ 2 .^ collect(0:pow-3) # skip the last two lines
-# # for dist ∈ 2 .^ collect(0:pow-1) # this takes hours
-#         @show dist
-#     p = hill_error(ω,N,D;dist)
-#     push!(data,[stats(p,i) for i in 2:lastindex(dis)])
-# end
-# # save_object("Hill_error2.jld2",data) # careful not to overwrite
+# data = load_object("Hill_error_ref.jld2")
+data = []; _,ω = fill_hill(N,D);
+for dist ∈ 2 .^ collect(0:pow-3) # skip the last two lines
+# for dist ∈ 2 .^ collect(0:pow-1) # this takes hours
+    @show dist
+    p = hill_error(ω,N,D;dist)
+    push!(data,[stats(p,i) for i in 2:lastindex(dis)])
+end
+save_object("Hill_error.jld2",data) # careful not to overwrite
 
 colors = colormap("Blues",pow+2)
-plt = plot(xlabel="d/D",ylabel="max(log10(|uₑ|/U))",ylims=(-6,-1));
+plt = plot(xlabel="d/2R",ylabel="max(log₁₀(|uₑ|/U))",ylims=(-6,-1));
 for (dist,vec) in enumerate(data)
     plot!(plt,collect(dis)[2:end]./D,vec,label="log₂(size)=$(dist-1)",c=colors[2+dist])
 end
