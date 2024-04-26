@@ -37,7 +37,8 @@ btime(b) = minimum(b).time
 duration = [btime(@benchmark m_u_ω(1,$R[1],$ω,$dist)) for dist ∈ 2 .^ collect(0:pow-1)]
 
 using Plots
-plot(0:7,log10(duration[1]).-log10.(duration),xlabel="log₂(size)",ylabel="log₁₀(speedup)",legend=false)
+plot(2.0.^collect(0:7),duration[end]./duration,xlabel="S",ylabel="speedup",
+     legend=false,yaxis=:log,xaxis=:log)
 savefig("Hill_speedup_dists.png")
 
 # Check error scaling with dist
@@ -67,9 +68,10 @@ end
 save_object("Hill_error.jld2",data) # careful not to overwrite
 
 colors = colormap("Blues",pow+2)
-plt = plot(xlabel="d/2R",ylabel="max(log₁₀(|uₑ|/U))",ylims=(-6,-1));
+plt = plot(xlabel="d/2R",ylabel="max(|uₑ|/U)",ylims=(10^-6,.1));
 for (dist,vec) in enumerate(data)
-    plot!(plt,collect(dis)[2:end]./D,vec,label="log₂(size)=$(dist-1)",c=colors[2+dist])
+    plot!(plt,collect(dis)[2:end]./D,10.0.^vec,label="S=$(2 .^(dist-1))",
+          c=colors[2+dist],yaxis=:log,legendtitle = "Multilevel")
 end
 plt
 savefig("Hill_error_dists.png")
