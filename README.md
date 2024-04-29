@@ -25,12 +25,12 @@ I will assume you are using `BiotSavartBCs.jl` with `WaterLily` and that you hav
 
 Start by opening `julia` and activate this environment
 ```bash
-julia --project=~/Workspace/WaterLily.jl/examples
+julia --project=/PATH/TO/WaterLily.jl/examples
 ```
 This will open julia, use the package manager to `dev` the `BiotSavartBCs.jl`
 ```julia
 julia> ]
-(examples) pkg> dev ~/Workspace/BiotSavartBCs.jl
+(examples) pkg> dev /PATH/TO/BiotSavartBCs.jl
 ...
 (examples) pkg> instantiate
 ...
@@ -58,7 +58,7 @@ the second line that you have to modify is to creates the Biot-Savart integral o
 
 The last step is to swap the standard `mom_step!` with the new Biot-Savart momentum step
 ```julia
-mom_step!(sim.flow,sim.pois,ω_ml) # 2D and 3D flows
+biot_mom_step!(sim.flow,sim.pois,ω_ml) # 2D and 3D flows
 ```
 which takes care of applying these novel boundary conditions to the flow during the time-integration.
 
