@@ -51,7 +51,3 @@ for use_biotsavart in [true]
         end
     end
 end
-# # plot!([0,3],[Ca,Ca],label=:none,ls=:dot,color=:black)
-# xlims!(0,3); ylims!(0,4)
-# xlabel!("Convective time"); ylabel!("( F/ρU²R² )/ Ca")
-# savefig("Disk_$(N)D_force.png")
