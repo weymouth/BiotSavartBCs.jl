@@ -69,12 +69,12 @@ There are numerous examples in the `examples` folder of this repository that sho
 Here are a few renderings of the cool things you can do with [`WaterLily.jl`](https://github.com/weymouth/WaterLily.jl) and these new Biot-Savart BCs
 
 #### Flow behind a square plate at Re=125,000
-[![square1]](https://www.youtube.com/shorts/CNQqI5rRdug)
+[![square1](https://img.youtube.com/vi/CNQqI5rRdug/0.jpg)](https://www.youtube.com/shorts/CNQqI5rRdug)
 
-[![square2]](https://www.youtube.com/shorts/tbf06uhnAEQ)
+[![square2](https://img.youtube.com/vi/tbf06uhnAEQ/0.jpg)](https://www.youtube.com/shorts/tbf06uhnAEQ)
 
 #### Flow behind a Doritos at Re=25,000
-[![doritos]](https://www.youtube.com/shorts/spFlx2YW0pg)
+[![doritos](https://img.youtube.com/vi/spFlx2YW0pg/0.jpg)](https://www.youtube.com/shorts/spFlx2YW0pg)
 
 
 ### Limitations
