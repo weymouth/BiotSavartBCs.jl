@@ -6,9 +6,9 @@
 
 ## Reproducing the results
 
-To reproduce the results presented [here](https://arxiv.org/abs/2404.09034) you will need a working `Julia` kernel, preferable `v.1.10.x`. You will also need a version of the [`WaterLily.jl`](https://github.com/weymouth/WaterLily.jl) flow solver.
+To reproduce the results presented [here](https://arxiv.org/abs/2404.09034), you will need a working `Julia` kernel, preferably `v.1.10.x`. You will also need a version of the [`WaterLily.jl`](https://github.com/weymouth/WaterLily.jl) flow solver.
 
-The first step before using these new boundary conditions is to clone this repository somewhere on your machine, I will assume that this repository is to be cloned into a `Workspace` folder on your machine. The first thing to do is to go into this directory
+The first step before using these new boundary conditions is to clone this repository somewhere on your machine; I will assume that this repository is to be cloned into a `Workspace` folder on your machine. The first thing to do is to go into this directory
 ```bash
 cd ~/Workscape
 ```
@@ -27,7 +27,7 @@ Start by opening `julia` and activate this environment
 ```bash
 julia --project=/PATH/TO/WaterLily.jl/examples
 ```
-This will open julia, use the package manager to `dev` the `BiotSavartBCs.jl`
+This will open julia; use the package manager to `dev` the `BiotSavartBCs.jl`
 ```julia
 julia> ]
 (examples) pkg> dev /PATH/TO/BiotSavartBCs.jl
@@ -42,14 +42,14 @@ You can the import it and use it within `WaterLily` simulations.
 using BiotSavartBCs
 ```
 
-### WaterLily.jl Simuations with BiotSavartBCs.jl
+### WaterLily.jl Simulations with BiotSavartBCs.jl
 
-Using these new boundary conditions within a `WaterLily` simulation is really straight-forward, this requires only three (😱) lines of codes. The first one is obviously
+Using these new boundary conditions within a `WaterLily` simulation is really straightforward; this requires only three (😱) lines of code. The first one is obviously
 
 ```julia
 using WaterLily,BiotSavartBCs
 ```
-the second line that you have to modify is to creates the Biot-Savart integral operator (using the multi-level approach described in the paper)
+The second line that you have to modify is to create the Biot-Savart integral operator (using the multi-level approach described in the paper)
 
 ```julia
 ω_ml = MLArray(sim.flow.σ)              #2D flows
@@ -60,9 +60,22 @@ The last step is to swap the standard `mom_step!` with the new Biot-Savart momen
 ```julia
 biot_mom_step!(sim.flow,sim.pois,ω_ml) # 2D and 3D flows
 ```
-which takes care of applying these novel boundary conditions to the flow during the time-integration.
+which applies these novel boundary conditions to the flow during the time integration.
 
 There are numerous examples in the `examples` folder of this repository that show how to use these new boundary conditions in practice.
+
+### Gallery
+
+Here are a few renderings of the cool things you can do with [`WaterLily.jl`](https://github.com/weymouth/WaterLily.jl) and these new Biot-Savart BCs
+
+#### Flow behind a square plate at Re=125,000
+[![square1]](https://www.youtube.com/shorts/CNQqI5rRdug)
+
+[![square2]](https://www.youtube.com/shorts/tbf06uhnAEQ)
+
+#### Flow behind a Doritos at Re=25,000
+[![doritos]](https://www.youtube.com/shorts/spFlx2YW0pg)
+
 
 ### Limitations
 
