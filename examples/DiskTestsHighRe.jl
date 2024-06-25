@@ -35,7 +35,7 @@ for t in range(0,10;step=0.02)#1:6
     while sim_time(sim)<t #sim_step!(sim,t)
         measure!(sim,sum(sim.flow.Δt)) # update the body compute at timeNext
         biot_mom_step!(sim.flow,sim.pois,ω)
-        f = -2WaterLily.∮nds(sim.flow.p,sim.flow.f,sim.body,sum(sim.flow.Δt[1:end-1]))/R^2
+        f = 2WaterLily.pressure_force(sim)/R^2
         push!(forces,[sim_time(sim),f[1]])
     end
     write!(writer,sim);

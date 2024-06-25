@@ -9,10 +9,10 @@ end
 include("TwoD_plots.jl")
 using JLD2
 CIs = CartesianIndices
-N = 2^8; R = N/3
+N = 2^6; R = N/3
 domain = (2:N+1,2:N+1,N÷2+1)
 for use_biotsavart in [true]
-    sim = make_sim_acc(mem=CUDA.CuArray;N,R);
+    sim = make_sim_acc(mem=Array;N,R);
     ω = use_biotsavart ? ntuple(i->MLArray(sim.flow.σ),3) : nothing
     forces = []; k=0; σ = []; p = [];
     @show sizeof(sim)
@@ -20,7 +20,7 @@ for use_biotsavart in [true]
         @time while sim_time(sim)<t #sim_step!(sim,t)
             measure!(sim,sum(sim.flow.Δt)) # update the body compute at timeNext
             use_biotsavart ? biot_mom_step!(sim.flow,sim.pois,ω) : WaterLily.mom_step!(sim.flow,sim.pois)
-            f = -2WaterLily.∮nds(sim.flow.p,sim.flow.f,sim.body,sum(sim.flow.Δt[1:end-1]))/R^2
+            f = 2WaterLily.pressure_force(sim)/R^2
             push!(forces,[sim_time(sim),f[1]])
         end
         WaterLily.@loop sim.flow.σ[I] = WaterLily.curl(3,I,sim.flow.u)*sim.L/sim.U over I ∈ CIs(domain)

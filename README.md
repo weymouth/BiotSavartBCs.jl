@@ -10,9 +10,9 @@ To reproduce the results presented [here](https://arxiv.org/abs/2404.09034), you
 
 The first step before using these new boundary conditions is to clone this repository somewhere on your machine; I will assume that this repository is to be cloned into a `Workspace` folder on your machine. The first thing to do is to go into this directory
 ```bash
-cd ~/Workscape
+cd ~/Workspace
 ```
-Then, you can clone the `BiotSavartBCs.jl` (and the `WaterLily.jl` solver if you don't already have it, or you can use the official `WaterLily` release from the `Julia` package manager)
+Then, you can clone the `BiotSavartBCs.jl` (and the `WaterLily.jl` solver if you don't already have it, note that you cannot use the official `WaterLily` release from the `Julia` package manager to run these test due to some function incompatibility)
 ```bash
 git clone https://github.com/weymouth/BiotSavartBCs.jl
 (git clone https://github.com/weymouth/WaterLily.jl)
@@ -25,7 +25,7 @@ I will assume you are using `BiotSavartBCs.jl` with `WaterLily` and that you hav
 
 Start by opening `julia` and activate this environment
 ```bash
-julia --project=/PATH/TO/WaterLily.jl/examples
+julia --project=/PATH/TO/BiotSavartBCs.jl/examples
 ```
 This will open julia; use the package manager to `dev` the `BiotSavartBCs.jl`
 ```julia
@@ -35,21 +35,26 @@ julia> ]
 (examples) pkg> instantiate
 ...
 ```
-This will install and precompile some of the packages required for this new package.
-
-You can the import it and use it within `WaterLily` simulations.
+This will install and precompile some of the packages required to use this new package. If you have elected to use the github version of WaterLily, you can also `dev` it in the same way
+```julia
+(examples) pkg> dev /PATH/TO/WaterLily.jl
+...
+(examples) pkg> instantiate
+...
+```
+You can then import the `BiotSavartBCs.jl` package and use it within a `WaterLily` simulation.
 ```julia
 using BiotSavartBCs
 ```
 
 ### WaterLily.jl Simulations with BiotSavartBCs.jl
 
-Using these new boundary conditions within a `WaterLily` simulation is really straightforward; this requires only three (😱) lines of code. The first one is obviously
+Using these new boundary conditions within a `WaterLily` simulation is really straightforward; this requires changing only three (😱) lines of code. The first one is obviously
 
 ```julia
 using WaterLily,BiotSavartBCs
 ```
-The second line that you have to modify is to create the Biot-Savart integral operator (using the multi-level approach described in the paper)
+The second line that you have to modify creates the Biot-Savart integral operator (using the multi-level approach described in the paper)
 
 ```julia
 ω_ml = MLArray(sim.flow.σ)              #2D flows

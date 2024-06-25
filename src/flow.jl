@@ -1,17 +1,17 @@
 # momentum step using bio_project
-import WaterLily: scale_u!,conv_diff!,BDIM!,CFL,accelerate!,time,timeNext
+import WaterLily: scale_u!,conv_diff!,BDIM!,CFL,accelerate!,time
 function biot_mom_step!(a::Flow{N},b,ω) where N
     a.u⁰ .= a.u; scale_u!(a,0)
     # predictor u → u'
-    U = BCTuple(a.U,time(a),N)
+    U = BCTuple(a.U,@view(a.Δt[1:end-1]),N)
     conv_diff!(a.f,a.u⁰,a.σ,ν=a.ν);
-    accelerate!(a.f,time(a),a.g,a.U)
+    accelerate!(a.f,@view(a.Δt[1:end-1]),a.g,a.U)
     BDIM!(a);
     biot_project!(a,b,ω,U) # new
     # corrector u → u¹
-    U = BCTuple(a.U,timeNext(a),N)
+    U = BCTuple(a.U,a.Δt,N)
     conv_diff!(a.f,a.u,a.σ,ν=a.ν)
-    accelerate!(a.f,timeNext(a),a.g,a.U)
+    accelerate!(a.f,a.Δt,a.g,a.U)
     BDIM!(a); scale_u!(a,0.5)
     biot_project!(a,b,ω,U,w=0.5) # new
     push!(a.Δt,CFL(a))

@@ -22,11 +22,11 @@ function _u_ω(x,dis,l,R,biotsavart,u=0f0)
     end; u
 end
 import StaticArrays: SA_F32
-r(x,I::CartesianIndex,dx=1) = x-dx*(SA_F32[I.I...] .- 1.5f0) # faster than loc(0,I,Float32)
+r(x,I::CartesianIndex,dx=1) = x-dx*(SA_F32[I.I...] .- 1.5f0) # faster than loc(0,I)
 inR(x,R) = clamp(CartesianIndex(round.(Int,x .+ 1.5f0)...),R)
 Base.clamp(I::CartesianIndex,R::CartesianIndices) = CartesianIndex(clamp.(I.I,first(R).I,last(R).I))
 
-u_ω(i,I::CartesianIndex{2},ω) = _u_ω(loc(i,I,Float32),7,lastindex(ω),inside(ω[end]),
+u_ω(i,I::CartesianIndex{2},ω) = _u_ω(loc(i,I),7,lastindex(ω),inside(ω[end]),
     @inline (r,I,l=1) -> @inbounds(ω[l][I]*r[i%2+1])/(r'*r))*(2i-3)/Float32(2π)
-u_ω(i,I::CartesianIndex{3},ω) = _u_ω(loc(i,I,Float32),2,lastindex(ω[1]),inside(ω[1][end]),
+u_ω(i,I::CartesianIndex{3},ω) = _u_ω(loc(i,I),2,lastindex(ω[1]),inside(ω[1][end]),
     @inline (r,I,l=1) -> permute((j,k)->@inbounds(ω[j][l][I]*r[k]),i)/√(r'*r)^3)/Float32(4π)
