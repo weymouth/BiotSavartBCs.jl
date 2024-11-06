@@ -1,15 +1,17 @@
 module BiotSavartBCs
 
 using WaterLily
-include("vorticity.jl")
-export MLArray,fill_ω!
-
-include("velocity.jl")
-export u_ω
 
 include("util.jl")
-export biotBC!,pflowBC!,fix_resid!
+export MLArray,collect_targets,flatten_targets
+
+include("vorticity.jl")
+export fill_ω!
+
+include("velocity.jl")
+export biotBC!,pflowBC!
 
 include("flow.jl")
-export biot_mom_step!
+export biot_mom_step!,fix_resid!
+
 end
