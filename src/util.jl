@@ -3,9 +3,12 @@ using KernelAbstractions
 using KernelAbstractions: get_backend,@kernel,@index,@Const
 macro loop(args...)
     ex,_,itr = args
-    _,I,R = itr.args; sym = []
-    WaterLily.grab!(sym,ex)     # get arguments and replace composites in `ex`
-    setdiff!(sym,[I]) # don't want to pass I as an argument
+    _,I,R = itr.args; 
+    sym,symI = [],[]
+    # grab arguments and replace composites
+    WaterLily.grab!(sym,ex)
+    WaterLily.grab!(symI,I)
+    setdiff!(sym,symI) # don't want to pass index as an argument
     @gensym kern i    # generate unique kernel function name
     return quote
         @kernel function $kern($(WaterLily.rep.(sym)...)) # replace composite arguments
@@ -49,7 +52,7 @@ restrict!(a,b) = @loop a[Ii] = restrict(Ii,b) over Ii ∈ inside_u(a)
     end; s
 end
 inside_u(a;buff=1) = inside_u(size_u(a)[1],buff)
-inside_u(ndims::NTuple{n},buff) where n = CartesianIndices(map(N->(1+buff:N-buff),ndims))
+inside_u(ndims::NTuple{n},buff) where n = CartesianIndices((map(N->(1+buff:N-buff),ndims)...,1:n))
 
 # Collect "targets" on the faces of a MLArray
 using Base.Iterators
@@ -60,7 +63,7 @@ flatten_targets(targets) = mapreduce(((level,targets),)->map(T->(level,T),target
 
 # Vector MLArray projection on targets
 project!(ml::Tuple,mltargets::Tuple) = for l ∈ reverse(2:lastindex(ml)-1)
-    project!(ml[l-1],ml[l],mltargets[l-1])
+    project!(ml[l],ml[l+1],mltargets[l])
 end
 project!(a,b,targets) = @loop a[Ii] += 0.25f0project(Ii,b) over Ii ∈ targets
 project(Ii::CartesianIndex,b) = @inbounds(b[down(front(Ii)),last(Ii)])

@@ -2,6 +2,36 @@ using BiotSavartBCs
 using Test
 using WaterLily
 
+using BiotSavartBCs: @loop,inside_u,restrict!,project!
+@testset "util.jl" begin
+    a = zeros(Int,(4,4,6,3))
+    @loop a[I] += 1 over I in inside_u(a,buff=2)
+    @test sum(a) == 0
+    @loop a[I] += 1 over I in inside_u(a)
+    @test sum(a) == length(inside_u(a)) == 2*2*4*3
+
+    a = zeros(Int,(10,10,18,3))
+    ml=MLArray(a)
+    @test length(ml)==3
+    @loop a[I] += 1 over I in inside_u(a)
+    @test sum(first(ml)) == length(inside_u(a))
+    restrict!(ml)
+    @test sum(last(ml)) == length(inside_u(a))
+
+    tar = collect_targets(ml)
+    @test length(tar[1]) == 4length(tar[2]) == 16length(tar[3])
+    Ti = last(tar[2])
+    T,i = front(Ti),last(Ti)
+    @test CartesianIndex(down(T),i)==last(tar[3])
+    
+    @loop ml[3][I] += 4 over I in tar[3]
+    project!(ml,tar)
+    @test ml[2][Ti] == 1
+
+    @test length(flatten_targets(tar)) == sum(length,tar)
+    @test flatten_targets(tar)[sum(length,tar[1:2])] == (2,Ti)
+end
+
 using SpecialFunctions,ForwardDiff
 function lamb_dipole(N;D=3N/4,U=1)
     β = 2.4394π/D
