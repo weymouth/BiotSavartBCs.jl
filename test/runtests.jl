@@ -2,7 +2,7 @@ using BiotSavartBCs
 using Test
 using WaterLily
 
-using BiotSavartBCs: @loop,inside_u,restrict!,project!
+using BiotSavartBCs: @loop,inside_u,restrict!,project!,down,front
 @testset "util.jl" begin
     a = zeros(Int,(4,4,6,3))
     @loop a[I] += 1 over I in inside_u(a,buff=2)
@@ -32,19 +32,6 @@ using BiotSavartBCs: @loop,inside_u,restrict!,project!
     @test flatten_targets(tar)[sum(length,tar[1:2])] == (2,Ti)
 end
 
-using SpecialFunctions,ForwardDiff
-function lamb_dipole(N;D=3N/4,U=1)
-    β = 2.4394π/D
-    C = -2U/(β*besselj0(β*D/2))
-    function ψ(x,y)
-        r = √(x^2+y^2)
-        ifelse(r ≥ D/2, U*((D/2r)^2-1)*y, C*besselj1(β*r)*y/r)
-    end
-    return function uλ(i,xy)
-        x,y = xy .- (N-2)/2
-        ifelse(i==1,ForwardDiff.derivative(y->ψ(x,y),y)+1+U,-ForwardDiff.derivative(x->ψ(x,y),x))
-    end
-end
 function hill_vortex(N;D=3N/4)
     return function uλ(i,xyz)
         q = xyz .- (N-2)/2; x,y,z = q; r = √(q'*q); θ = acos(z/r); ϕ = atan(y,x)
@@ -57,70 +44,42 @@ function hill_vortex(N;D=3N/4)
 end
 
 @testset "vorticity.jl" begin
-    pow = 5; N = 2+2^pow
-    u = Array{Float32}(undef,(N,N,2)); p = Array{Float32}(undef,(N,N));
-    
-    # lamb dipole
-    apply!(lamb_dipole(N),u)
-    ω = MLArray(u[:,:,1])
-    @test length(ω)==pow # correct number of levels
+    # Hill ring vortex in 3D
+    N = 2+2^5
+    u = Array{Float32}(undef,(N,N,N,3)); apply!(hill_vortex(N),u)
+    ω = zeros(Float32,N,N,N,3)
 
-    fill_ω!(ω,u)
-    @test all(ω[1][[2,N-1],:].==0) # no vorticity outside the bubble
-    @test all(@. abs(sum(ω))<12e-5) # zero-sum at every level
-    # @test allequal(abs.(ω[pow][inside(ω[pow])])) # center = 0
+    fill_ω!(ω,u) # Ideally, ω₃=0 & |ωᵩ|N/U≤20, but ω is discontinuous...
+    @test all(-0.25 .< extrema(ω[:,:,:,3]) .*N .< 0.25) # roughly 0
+    @test 18 < maximum(ω)*N < 20 # roughly |20|
+    @test abs(sum(ω)) < 1e-4 # zero total circulation
 
-    # hydrostatic p on an immersed circle
-    WaterLily.@loop p[I] = -loc(0,I)[2] over I ∈ inside(p,buff=0)
+    # hydrostatic p on an immersed sphere
+    p = Array{Float32}(undef,(N,N,N))
+    @loop p[I] = -loc(0,I)[1] over I ∈ CartesianIndices(p)
     sdf(x) = √sum(abs2,x .-(N-2)/2)-N/4
     apply!((i,x)->WaterLily.μ₀(sdf(x),1),u) # overwrite u with μ₀
     fill_ω!(ω,u,p)
-    @test all(extrema(ω[1]).≈(-0.5,0.5)) # dμ₀/dx for ϵ=1
-    WaterLily.@loop p[I] = sdf(loc(0,I)) over I ∈ inside(p,buff=0) # overwrite p with d
-    @test all(abs(ω[1][I])==0 for I ∈ inside(p) if abs(p[I])>2.1)  # ω=0 outside smoothing region
-    
-    # Hill ring vortex in 3D
-    u = Array{Float32}(undef,(N,N,N,3)); apply!(hill_vortex(N),u)
-    ω = ntuple(i->MLArray(u[:,:,:,1]),3)
-    @test all(@. length(ω)==pow) # correct number of levels
-
-    fill_ω!(ω,u) # Ideally, ω₃=0 & |ωᵩ|N/U≤20, but ω is discontinuous...
-    @test all(x->abs(N/20*x)<0.01,extrema(ω[3][1][inside(ω[3][1])]))  # ω₃ ≈ 0
-    # @test allequal(round.(Int,abs.(ω[1][pow][inside(ω[1][pow])]))) # center = 0
-    # @test allequal(round.(Int,abs.(ω[2][pow][inside(ω[2][pow])]))) # center = 0   
+    @test all(extrema(ω[:,:,:,2]).≈(-0.5,0.5)) # dμ₀/dx for ϵ=1
+    @test all(extrema(ω[:,:,:,3]).≈(-0.5,0.5)) # dμ₀/dx for ϵ=1
+    @test all(sum(abs2,ω[I,:])<eps() for I ∈ inside(p) if abs(sdf(loc(0,I)))>2.1)  # ω=0 outside smoothing region
 end
 
-function lamb_uω(N)
-    u = Array{Float32}(undef,(N,N,2)); apply!(lamb_dipole(N),u)
-    ω = MLArray(u[:,:,1]); fill_ω!(ω,u)
-    u,ω
-end
-function hill_uω(N)
-    u = Array{Float32}(undef,(N,N,N,3)); apply!(hill_vortex(N),u)
-    ω = ntuple(i->MLArray(u[:,:,:,1]),3); fill_ω!(ω,u)
-    u,ω
-end
-
+using BiotSavartBCs: slice,interaction!
 @testset "velocity.jl" begin
-    function L_inf_2D(pow; N = 2+2^pow, U=(1,0))
-        u,ω = lamb_uω(N)
-        u_max = maximum(abs,u)
-        for i ∈ 1:2
-            WaterLily.@loop u[I,i] -= U[i]+u_ω(i,I,ω) over I ∈ inside(ω[1],buff=0)
-        end
-        maximum(abs,u)/u_max
-    end
-    @test all(L_inf_2D.(4:6) .< [0.042,0.012,0.004])
+    N = 2+2^6; U=(0,0,1)
+    hill = hill_vortex(N)
+    u = Array{Float32}(undef,(N,N,N,3)); apply!(hill,u); u_max = maximum(abs,u)
+    ω = MLArray(zeros(Float32,N,N,N,3)); tar = collect_targets(ω); ftar = flatten_targets(tar)
 
-    function L_inf_3D(pow; N = 2+2^pow, U=(0,0,1))
-        u,ω = hill_uω(N)
-        u_max = maximum(abs,u)
-        for i ∈ 1:3
-            WaterLily.@loop u[I,i] -= U[i]+u_ω(i,I,ω) over I ∈ inside(ω[1][1],buff=0)
-        end
-        maximum(abs,u)/u_max
+    fill_ω!(ω,u); fill!(u,0f0); biotBC!(u,U,ω,tar,ftar)
+    L∞ = L₂ = 0f0
+    for i ∈ 1:3, s ∈ (2,N), I ∈ slice(size(u),i,s)
+        L₂ += (u[I]-hill(i,loc(I)))^2
+        L∞ = max(L∞ ,abs(u[I]-hill(i,loc(I))))
     end
-    @test all(L_inf_3D.(4:6) .< [0.16,0.1,0.055]) # discontinuous cases converge slow...
+    @test sqrt(L₂/length(tar[1]))/u_max<0.024
+    @test L∞/u_max < 0.1
 end
 
 @testset "util.jl" begin

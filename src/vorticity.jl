@@ -1,5 +1,6 @@
 # compute ω=∇×u excluding boundaries
 import WaterLily: permute,∂
+fill_ω!(ml::Tuple,args...) = (ω=first(ml); fill!(ω,zero(eltype(ω))); fill_ω!(ω,args...); restrict!(ml))
 fill_ω!(ω,u) = @loop ω[Ii] = centered_curl(Ii,u) over Ii ∈ inside_u(ω,buff=2)
 centered_curl(Ii,u) = (I=front(Ii); i=last(Ii); permute((j,k)->∂(k,j,I,u),i))
 

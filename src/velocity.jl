@@ -26,7 +26,6 @@ interaction!(ω,flat_targets) = @loop _interaction!(ω,lT) over lT ∈ flat_targ
 
 # Biot-Savart BC
 function biotBC!(u,U,ω,targets,flat_targets)
-    restrict!(ω)
     interaction!(ω,flat_targets)
     project!(ω,targets)
     @loop biot_finish!(u,U,ω[1],ω[2],Ii) over Ii ∈ targets[1]
