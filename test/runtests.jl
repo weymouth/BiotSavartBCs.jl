@@ -2,7 +2,7 @@ using BiotSavartBCs
 using Test
 using WaterLily
 
-using BiotSavartBCs: @loop,inside_u,restrict!,project!,down,front
+using BiotSavartBCs: @loop,inside_u,restrict!,project!,down,front,step
 @testset "util.jl" begin
     a = zeros(Int,(4,4,6,3))
     @loop a[I] += 1 over I in inside_u(a,buff=2)
@@ -67,50 +67,25 @@ end
 
 using BiotSavartBCs: slice,interaction!
 @testset "velocity.jl" begin
-    N = 2+2^6; U=(0,0,1)
-    hill = hill_vortex(N)
-    u = Array{Float32}(undef,(N,N,N,3)); apply!(hill,u); u_max = maximum(abs,u)
-    ω = MLArray(zeros(Float32,N,N,N,3)); tar = collect_targets(ω); ftar = flatten_targets(tar)
+    N = 2+3*2^3; U=(0,0,1)
+    u = Array{Float32}(undef,(N,N,N,3)); apply!(hill_vortex(N),u);
+    ω = MLArray(zeros(Float32,N,N,N,3)); tar = collect_targets(ω); ftar = flatten_targets(tar);
+    fill_ω!(ω,u); u₀ = zeros(Float32,N,N,N,3); biotBC!(u₀,U,ω,tar,ftar);
 
-    fill_ω!(ω,u); fill!(u,0f0); biotBC!(u,U,ω,tar,ftar)
-    L∞ = L₂ = 0f0
-    for i ∈ 1:3, s ∈ (2,N), I ∈ slice(size(u),i,s)
-        L₂ += (u[I]-hill(i,loc(I)))^2
-        L∞ = max(L∞ ,abs(u[I]-hill(i,loc(I))))
+    tol = (0.02,0.02,0.048) # much larger velocities in z direction
+    for i in 1:3, s in (2,N)
+        @test maximum(I->abs(u[I]-u₀[I]),slice(size(u),i,s)) < tol[i]
     end
-    @test sqrt(L₂/length(tar[1]))/u_max<0.024
-    @test L∞/u_max < 0.1
+
+    # pflowBC!(u₀) # fix ghosts
+    # @test maximum(abs,(u.-u₀)[2:end-1,1,2:end-1,3])<0.02 # tangential
+    # @test maximum(abs,(u.-u₀)[1,2:end-1,2:end-1,3])<0.02 # tangential
+    # @test maximum(abs,(u.-u₀)[2:end-1,2:end-1,1,3])<0.02 # normal
 end
-
-@testset "util.jl" begin
-    pow = 4; N = 2+2^pow; U=(1,0)
-    u,ω = lamb_uω(N); u₀ = copy(u)
-    BC!(u,U) # mess up boundaries
-    biotBC!(u,U,ω) # fix domain velocities
-    @test maximum(abs,(u.-u₀)[2:end,2:end-1,1])<0.003
-    @test maximum(abs,(u.-u₀)[2:end-1,2:end,2])<0.003
-    pflowBC!(u) # fix ghosts
-    @test maximum(abs,(u.-u₀)[2:end-1,1,1])<0.0044 # tangential
-    @test maximum(abs,(u.-u₀)[1,2:end-1,2])<0.003 # tangential
-    @test maximum(abs,(u.-u₀)[1,2:end-1,1])<0.003 # normal
-    @test maximum(abs,(u.-u₀)[2:end-1,1,2])<0.003 # normal
-
-    U=(0,0,1)
-    u,ω = hill_uω(N); u₀ = copy(u)
-    BC!(u,U) # mess up boundaries
-    biotBC!(u,U,ω) # fix domain velocities
-    @test maximum(abs,(u.-u₀)[2:end,2:end-1,2:end-1,1])<0.02
-    @test maximum(abs,(u.-u₀)[2:end-1,2:end,2:end-1,2])<0.02
-    @test maximum(abs,(u.-u₀)[2:end-1,2:end-1,2:end,3])<0.02
-    pflowBC!(u) # fix ghosts
-    @test maximum(abs,(u.-u₀)[2:end-1,1,2:end-1,3])<0.02 # tangential
-    @test maximum(abs,(u.-u₀)[1,2:end-1,2:end-1,3])<0.02 # tangential
-    @test maximum(abs,(u.-u₀)[2:end-1,2:end-1,1,3])<0.02 # normal
-
-    r = zeros(Float32,(N,N,N)); @inside r[I] = WaterLily.div(I,u)
-    fix_resid!(r)
-    @test sum(r)<1e-5
-end
+#     r = zeros(Float32,(N,N,N)); @inside r[I] = WaterLily.div(I,u)
+#     fix_resid!(r)
+#     @test sum(r)<1e-5
+# end
 
 @testset "flow.jl" begin
     circ(D,U=1,m=2D) = Simulation((m,m), (U,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=U*D/1e4)

@@ -66,4 +66,13 @@ project!(ml::Tuple,mltargets::Tuple) = for l ∈ reverse(2:lastindex(ml)-1)
     project!(ml[l],ml[l+1],mltargets[l])
 end
 project!(a,b,targets) = @loop a[Ii] += 0.25f0project(Ii,b) over Ii ∈ targets
-project(Ii::CartesianIndex,b) = @inbounds(b[down(front(Ii)),last(Ii)])
+# project(Ii::CartesianIndex,b) = @inbounds(b[down(front(Ii)),last(Ii)])
+@fastmath function project(Ii::CartesianIndex,b)
+    I,i,N = front(Ii),last(Ii),size_u(b)[1]
+    dj,dk = step(I,i%3+1,N),step(I,(i+1)%3+1,N)
+    I,I2,I3,I4 = down(I) .+ (zero(I),dj,dk,dj+dk)
+    @inbounds(9b[I,i]+3b[I2,i]+3b[I3,i]+b[I4,i])/16f0
+end
+step(I,j,N,Ij=I.I[j]) = (Ij % 2 == 1 ?    # positive step,
+    Ij ÷ 2 == N[j]-2 ? zero(I) : δ(j,I) : # don't step...
+    Ij ÷ 2 == 1      ? zero(I) : -δ(j,I)) # past either edge

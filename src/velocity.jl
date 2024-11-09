@@ -7,21 +7,29 @@ end
 shifted(T::CartesianIndex{N},i) where N = SVector{N,Float32}(ntuple(j-> j==i ? (T.I[i]==1 ? 0.5 : -0.5) : 0,N))
 
 # Sum over sources for a target (excluding adjacent points)
-Base.@propagate_inbounds @fastmath function biot(ω,Ti)
+Base.@propagate_inbounds @fastmath function biot(ω,Ti,l,depth)
     i,T = last(Ti),front(Ti)
     val = zero(eltype(ω))
     domain = CartesianIndices(map(N->(2:N-1),size_u(ω)[1]))
     R,Rclose = remaining(T,domain),close(T,domain)
-    for S in R
-        S ∉ Rclose && (val += weighted(i,T,S,ω))
+    l == depth && (R = domain)
+    # Should test against https://github.com/JuliaArrays/TiledIteration.jl?tab=readme-ov-file#edgeiterator
+    if l == 1
+        for S in R
+            val += weighted(i,T,S,ω)
+        end
+    elseif R≠Rclose
+        for S in R
+            S ∉ Rclose && (val += weighted(i,T,S,ω))
+        end
     end; val
 end
-close(T,R) = inR(T-oneunit(T):T+oneunit(T),R)
+close(T,R) = inR(T-2oneunit(T):T+2oneunit(T),R)
 remaining(T,R) = up(close(down(T),down(R)))
 inR(x,R) = max(first(x),first(R)):min(last(x),last(R))
 
 # Interaction on targets
-@inline _interaction!(ω,lT) = ((l,T) = lT; ω[l][T] = biot(ω[l],T))
+@inline _interaction!(ω,lT) = ((l,T) = lT; ω[l][T] = biot(ω[l],T,l,length(ω)))
 interaction!(ω,flat_targets) = @loop _interaction!(ω,lT) over lT ∈ flat_targets
 
 # Biot-Savart BC
@@ -46,6 +54,5 @@ function pflowBC!(u)
             @loop u[I,j] = u[I-δ(i,I),j]+∂(j,CartesianIndex(I,i),u) over I ∈ WaterLily.slice(N.-1,N[i],i,2)
         end
         # Normal direction ghosts, div=0
-        @loop u[I,i] += div(I,u) over I ∈ WaterLily.slice(N.-1,1,i,2)
     end
 end
