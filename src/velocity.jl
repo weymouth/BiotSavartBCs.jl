@@ -44,15 +44,13 @@ Base.@propagate_inbounds @fastmath function biot_finish!(u,U,a,b,Ii)
     u[I,i] = U[i]+(a[Ii]+0.25f0project(Ii,b))/Float32(4π)
 end
 
-# Incompressible & irrotational ghosts
+# Irrotational ghosts
 function pflowBC!(u)
     N,n = size_u(u)
-    for i ∈ 1:n
-        for j ∈ 1:n # Tangential direction ghosts, curl=0
-            j==i && continue
-            @loop u[I,j] = u[I+δ(i,I),j]-∂(j,CartesianIndex(I+δ(i,I),i),u) over I ∈ WaterLily.slice(N.-1,1,i,2)
-            @loop u[I,j] = u[I-δ(i,I),j]+∂(j,CartesianIndex(I,i),u) over I ∈ WaterLily.slice(N.-1,N[i],i,2)
-        end
-        # Normal direction ghosts, div=0
+    R(i,j,s) = CartesianIndices(ntuple(k-> k==i ? (s:s) : k==j ? (3:N[k]-1) : (2:N[k]-1),n))
+    for i ∈ 1:n, j ∈ 1:n
+        j==i && continue
+        @loop u[I,j] = u[I+δ(i,I),j]-∂(j,CartesianIndex(I+δ(i,I),i),u) over I ∈ R(i,j,1)
+        @loop u[I,j] = u[I-δ(i,I),j]+∂(j,CartesianIndex(I,i),u) over I ∈ R(i,j,N[i])
     end
 end

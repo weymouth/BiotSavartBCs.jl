@@ -68,19 +68,24 @@ end
 using BiotSavartBCs: slice,interaction!
 @testset "velocity.jl" begin
     N = 2+3*2^3; U=(0,0,1)
-    u = Array{Float32}(undef,(N,N,N,3)); apply!(hill_vortex(N),u);
+    u = Array{Float32}(undef,(N,N,N,3)); apply!(hill_vortex(N),u); u₀ = copy(u)
     ω = MLArray(zeros(Float32,N,N,N,3)); tar = collect_targets(ω); ftar = flatten_targets(tar);
-    fill_ω!(ω,u); u₀ = zeros(Float32,N,N,N,3); biotBC!(u₀,U,ω,tar,ftar);
+    fill_ω!(ω,u);
+    BC!(u,U); # mess up BCs
+    biotBC!(u,U,ω,tar,ftar); # fix them
 
     tol = (0.02,0.02,0.048) # much larger velocities in z direction
     for i in 1:3, s in (2,N)
         @test maximum(I->abs(u[I]-u₀[I]),slice(size(u),i,s)) < tol[i]
     end
 
-    # pflowBC!(u₀) # fix ghosts
-    # @test maximum(abs,(u.-u₀)[2:end-1,1,2:end-1,3])<0.02 # tangential
-    # @test maximum(abs,(u.-u₀)[1,2:end-1,2:end-1,3])<0.02 # tangential
-    # @test maximum(abs,(u.-u₀)[2:end-1,2:end-1,1,3])<0.02 # normal
+    pflowBC!(u) # fix ghosts
+    @test maximum(abs,(u.-u₀)[3:end-1,2:end-1,1,1])<0.02
+    @test maximum(abs,(u.-u₀)[3:end-1,2:end-1,end,1])<0.02
+    @test maximum(abs,(u.-u₀)[2:end-1,3:end-1,1,2])<0.02
+    @test maximum(abs,(u.-u₀)[2:end-1,3:end-1,end,2])<0.02
+    @test maximum(abs,(u.-u₀)[1,2:end-1,3:end-1,3])<0.023
+    @test maximum(abs,(u.-u₀)[end,2:end-1,3:end-1,3])<0.023
 end
 #     r = zeros(Float32,(N,N,N)); @inside r[I] = WaterLily.div(I,u)
 #     fix_resid!(r)
