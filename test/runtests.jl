@@ -100,5 +100,5 @@ end
     biot_mom_step!(sim.flow,sim.pois,ω,x₀,tar,ftar)
     @test abs(maximum(sim.flow.u[:,:,:,1])-1.5)<0.02    # u_max = 3/2
     @test abs(maximum(sim.flow.u[:,:,:,2:3])-0.75)<0.04 # v,w_max = 3/4
-    @test minimum(sim.flow.u[1,:,:,1])-8/9<0.01        # upstream slow down
+    @test minimum(sim.flow.u[2,:,:,1])-8/9<0.01        # upstream slow down
 end
