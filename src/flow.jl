@@ -25,7 +25,7 @@ function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,x₀,tar,ftar,U;w=1
     biotBC!(a.u,U,ω,tar,ftar)     # Apply domain BCs
 
     b = ml_b.levels[1]
-    @inside b.z[I] = div(I,a.u)   # Set σ=∇⋅u
+    @inside b.z[I] = WaterLily.div(I,a.u)   # Set σ=∇⋅u
     residual!(b); fix_resid!(b.r) # Set r=Ax-σ, and ensure sum(r)=0
 
     r₂ = L₂(b); nᵖ = 0
@@ -34,7 +34,7 @@ function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,x₀,tar,ftar,U;w=1
         Vcycle!(ml_b); smooth!(b) # Improve solution
         b.ϵ .= b.x .-x₀           # soln update: ϵ = x-x₀
         fill_ω!(ω,a.μ₀,b.ϵ)       # vort update: Δω = -∇×μ₀∇ϵ
-        update_resid!(b.r,a.u,b.z,ω) # Update domain BC and resid
+        update_resid!(b.r,a.u,ω,tar,ftar) # Update domain BC and resid
         r₂ = L₂(b); nᵖ+=1
         log && @show nᵖ,r₂
         r₂<tol && break
@@ -46,11 +46,27 @@ function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,x₀,tar,ftar,U;w=1
     a.p ./= dt    # Rescale pressure
 end
 
+# update domain velocity and residual
+function update_resid!(r,u,ω,tar,ftar)
+    interaction!(ω,ftar)
+    project!(ω,tar)
+    @loop _update_resid!(r,u,ω[1],ω[2],Ii) over Ii ∈ tar[1]
+    fix_resid!(r)
+end 
+Base.@propagate_inbounds @fastmath function _update_resid!(r,u,a,b,Ii)
+    duₙ = (a[Ii]+0.25f0project(Ii,b))/Float32(4π) # correction
+    I,i = front(Ii),last(Ii); lower = I.I[i]==1   # indices
+    
+    # Update velocity and residual
+    u[lower ? Ii+δ(i,Ii) : Ii] += duₙ
+    sgn = lower ? -1 : 1; r[I-sgn*δ(i,I)] += sgn*duₙ
+end
+
 function fix_resid!(r)
     N = size(r); n = length(N); A(i) = 2prod(N.-2)/(N[i]-2)
     res = sum(r)/sum(A,1:n)
     for i ∈ 1:n
-        @loop r[I] -= res over I ∈ slice(N.-1,2,i,2)
-        @loop r[I] -= res over I ∈ slice(N.-1,N[i]-1,i,2)
+        @loop r[I] -= res over I ∈ WaterLily.slice(N.-1,2,i,2)
+        @loop r[I] -= res over I ∈ WaterLily.slice(N.-1,N[i]-1,i,2)
     end
 end 
