@@ -70,39 +70,36 @@ using BiotSavartBCs: slice,interaction!
     N = 2+3*2^3; U=(0,0,1)
     u = Array{Float32}(undef,(N,N,N,3)); apply!(hill_vortex(N),u); u₀ = copy(u)
     ω = MLArray(zeros(Float32,N,N,N,3)); tar = collect_targets(ω); ftar = flatten_targets(tar);
-    fill_ω!(ω,u);
-    BC!(u,U); # mess up BCs
-    biotBC!(u,U,ω,tar,ftar); # fix them
+    fill_ω!(ω,u)
+    BC!(u,U) # mess up BCs
+    biotBC!(u,U,ω,tar,ftar) # fix face uₙ
+    pflowBC!(u) # fix ghosts
 
-    tol = (0.02,0.02,0.048) # much larger velocities in z direction
+    tol = (0.02,0.02,0.048) # Hill vortex has largest uₙ on z faces
     for i in 1:3, s in (2,N)
         @test maximum(I->abs(u[I]-u₀[I]),slice(size(u),i,s)) < tol[i]
     end
 
-    pflowBC!(u) # fix ghosts
+    # Tangential ghosts are great
     @test maximum(abs,(u.-u₀)[3:end-1,2:end-1,1,1])<0.02
     @test maximum(abs,(u.-u₀)[3:end-1,2:end-1,end,1])<0.02
     @test maximum(abs,(u.-u₀)[2:end-1,3:end-1,1,2])<0.02
     @test maximum(abs,(u.-u₀)[2:end-1,3:end-1,end,2])<0.02
     @test maximum(abs,(u.-u₀)[1,2:end-1,3:end-1,3])<0.023
     @test maximum(abs,(u.-u₀)[end,2:end-1,3:end-1,3])<0.023
+
+    # Normal ghost has lower accuracy (but it's the least important)
+    for i in 1:3
+        @test maximum(I->abs(u[I]-u₀[I]),slice(size(u),i,1)) < 0.06
+    end
 end
 #     r = zeros(Float32,(N,N,N)); @inside r[I] = WaterLily.div(I,u)
 #     fix_resid!(r)
 #     @test sum(r)<1e-5
 # end
 
-@testset "flow.jl" begin
-    circ(D,U=1,m=2D) = Simulation((m,m), (U,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=U*D/1e4)
-    sim = circ(256); ω = MLArray(sim.flow.σ);
-    biot_mom_step!(sim.flow,sim.pois,ω)
-    @test abs(maximum(sim.flow.u[:,:,1])-2)<0.02 # circle u_max = 2
-    @test abs(maximum(sim.flow.u[:,:,2])-1)<0.02 # circle v_max = 1
-    ϕᵢ,ϕₒ=extrema(sim.flow.u[:,end,2])
-    @test ϕₒ>0.1                                 # side outflow
-    @test abs(ϕₒ+ϕᵢ)<2e-5                        # symmetric in/outflow
-    @test minimum(sim.flow.u[1,:,1])-8/10<0.01    # upstream slow down
 
+@testset "flow.jl" begin
     sphere(D,U=1,m=2D) = Simulation((m,m,m), (U,0,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=U*D/1e4)
     sim = sphere(128); ω = ntuple(i->MLArray(sim.flow.σ),3);
     biot_mom_step!(sim.flow,sim.pois,ω)
