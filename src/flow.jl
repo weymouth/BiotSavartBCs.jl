@@ -19,48 +19,50 @@ end
 
 # project using biot BCs
 import WaterLily: residual!,Vcycle!,smooth!
-function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,v,x₀,tar,ftar,U;w=1,log=true,tol=1e-5,itmx=8) where n
+function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,x₀,tar,ftar,U;w=1,log=false,tol=1e-5,itmx=8) where n
     dt = w*a.Δt[end]; a.p .*= dt  # Scale p *= w*Δt
-    fill_ω!(ω,a.u,v,a.μ₀,a.p)       # Compute ω=∇×(u-μ₀∇p)
+    apply_grad_p!(a.u,ω,a.p,a.μ₀) # Apply u-=μ₀∇p & ω=∇×u
+    x₀ .= a.p; fill!(a.p,0)       # x₀ holds p solution
     biotBC!(a.u,U,ω,tar,ftar)     # Apply domain BCs
 
     b = ml_b.levels[1]
     @inside b.z[I] = WaterLily.div(I,a.u)   # Set σ=∇⋅u
-    residual!(b); # fix_resid!(b.r) # Set r=Ax-σ, and ensure sum(r)=0
-    nᵖ = 0
-    log && @show nᵖ,L₂(b)
+    residual!(b); nᵖ = 0
     while nᵖ<itmx
-        x₀ .= b.x                 # Remember current solution
-        Vcycle!(ml_b); smooth!(b) # Improve solution
-        log && @show nᵖ+1/2,L₂(b)
-        b.ϵ .= b.x .-x₀           # soln update: ϵ = x-x₀
-        fill_ω!(ω,v,a.μ₀,b.ϵ)     # vort update: Δω = -∇×μ₀∇ϵ
-        update_resid!(b.r,a.u,ω,tar,ftar) # Update domain BC and resid
+        Vcycle!(ml_b); smooth!(b)
+        apply_grad_p!(a.u,ω,a.p,a.μ₀)   # Update u,ω
+        x₀ .+= a.p; fill!(a.p,0)        # Update solution
+        biotBC_r!(b.r,a.u,U,ω,tar,ftar) # Update BC+residual
         r₂ = L₂(b); nᵖ+=1
         log && @show nᵖ,r₂
         r₂<tol && break
     end
     push!(ml_b.n,nᵖ)
-    
-    @loop a.u[Ii] -= b.L[Ii]*∂(last(Ii),front(Ii),b.x) over Ii ∈ inside_u(a.u)
-    pflowBC!(a.u) # Update ghost BCs (domain is already correct)
-    a.p ./= dt    # Rescale pressure
+    pflowBC!(a.u)  # Update ghost BCs (domain is already correct)
+    a.p .= x₀/dt   # copy-scaled pressure solution
+end
+
+# Apply u-=μ₀∇p & ω=∇×u
+function apply_grad_p!(u,ω,p,μ₀)
+    @loop u[Ii] -= μ₀[Ii]*∂(last(Ii),front(Ii),p) over Ii ∈ inside_u(u)
+    fill_ω!(ω,u)
 end
 
 # update domain velocity and residual
-function update_resid!(r,u,ω,tar,ftar)
+function biotBC_r!(r,u,U,ω,tar,ftar)
     interaction!(ω,ftar)
     project!(ω,tar)
-    @loop _update_resid!(r,u,ω[1],ω[2],Ii) over Ii ∈ tar[1]
+    @loop _update_resid!(r,u,U,ω[1],ω[2],Ii) over Ii ∈ tar[1]
     fix_resid!(r)
 end 
-Base.@propagate_inbounds @fastmath function _update_resid!(r,u,a,b,Ii)
-    duₙ = (a[Ii]+0.25f0project(Ii,b))/Float32(4π) # correction
-    I,i = front(Ii),last(Ii); lower = I.I[i]==1   # indices
-    
+Base.@propagate_inbounds @fastmath function _update_resid!(r,u,U,a,b,Ii)
+    I,i = front(Ii),last(Ii); lower = I.I[i]==1
+    uI = lower ? Ii+δ(i,Ii) : Ii
+
     # Update velocity and residual
-    u[lower ? Ii+δ(i,Ii) : Ii] += duₙ
-    sgn = lower ? -1 : 1; r[I-sgn*δ(i,I)] += sgn*duₙ
+    uₙ = U[i]+(a[Ii]+0.25f0project(Ii,b))/Float32(4π)
+    uₙ⁰ = u[uI]; u[uI] = uₙ
+    sgn = lower ? -1 : 1; r[I-sgn*δ(i,I)] += sgn*(uₙ-uₙ⁰)
 end
 
 function fix_resid!(r)

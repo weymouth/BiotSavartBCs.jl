@@ -1,3 +1,9 @@
+# compute ω=∇×u excluding boundaries
+import WaterLily: permute,∂
+fill_ω!(ml::Tuple,u) = (ω=first(ml); fill!(ω,zero(eltype(ω))); fill_ω!(ω,u); restrict!(ml))
+fill_ω!(ω,u) = @loop ω[Ii] = centered_curl(Ii,u) over Ii ∈ inside_u(ω,buff=2)
+Base.@propagate_inbounds centered_curl(Ii,u) = (I=front(Ii); i=last(Ii); permute((j,k)->∂(k,j,I,u),i))
+
 # inverse distance weighted source
 using StaticArrays
 Base.@propagate_inbounds @fastmath function weighted(i,T,S,ω)

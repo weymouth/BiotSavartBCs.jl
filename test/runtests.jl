@@ -43,7 +43,8 @@ function hill_vortex(N;D=3N/4)
     end
 end
 
-@testset "vorticity.jl" begin
+using BiotSavartBCs: slice,interaction!
+@testset "velocity.jl" begin
     # Hill ring vortex in 3D
     N = 2+2^5
     u = Array{Float32}(undef,(N,N,N,3)); apply!(hill_vortex(N),u)
@@ -54,19 +55,6 @@ end
     @test 18 < maximum(ω)*N < 20 # roughly |20|
     @test abs(sum(ω)) < 1e-4 # zero total circulation
 
-    # hydrostatic p on an immersed sphere
-    p = Array{Float32}(undef,(N,N,N))
-    @loop p[I] = -loc(0,I)[1] over I ∈ CartesianIndices(p)
-    sdf(x) = √sum(abs2,x .-(N-2)/2)-N/4
-    apply!((i,x)->WaterLily.μ₀(sdf(x),1),u) # overwrite u with μ₀
-    fill_ω!(ω,u,p)
-    @test all(extrema(ω[:,:,:,2]).≈(-0.5,0.5)) # dμ₀/dx for ϵ=1
-    @test all(extrema(ω[:,:,:,3]).≈(-0.5,0.5)) # dμ₀/dx for ϵ=1
-    @test all(sum(abs2,ω[I,:])<eps() for I ∈ inside(p) if abs(sdf(loc(0,I)))>2.1)  # ω=0 outside smoothing region
-end
-
-using BiotSavartBCs: slice,interaction!
-@testset "velocity.jl" begin
     N = 2+3*2^3; U=(0,0,1)
     u = Array{Float32}(undef,(N,N,N,3)); apply!(hill_vortex(N),u); u₀ = copy(u)
     ω = MLArray(zeros(Float32,N,N,N,3)); tar = collect_targets(ω); ftar = flatten_targets(tar);
