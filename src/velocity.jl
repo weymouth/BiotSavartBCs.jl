@@ -47,14 +47,14 @@ end
 # Incompressible & irrotational ghosts
 function pflowBC!(u)
     N,n = size_u(u)
-    R(i,j,s) = CartesianIndices(ntuple(k-> k==i ? (s:s) : k==j ? (2:N[k]) : (2:N[k]-1),n))
-    edge(I,j,val) = 2<I.I[j]<N[j] ? val : zero(eltype(u))
+    @inline edge(I,j,val) = 2<I.I[j]<N[j] ? val : zero(eltype(u))
     for i ∈ 1:n
         for j ∈ 1:n # Tangential direction ghosts, curl=0
             j==i && continue
-            @loop u[I,j] = u[I+δ(i,I),j] - edge(I,j,∂(j,CI(I+δ(i,I),i),u)) over I ∈ R(i,j,1)
-            @loop u[I,j] = u[I-δ(i,I),j] + edge(I,j,∂(j,CI(I,i),u)) over I ∈ R(i,j,N[i])
+            @loop u[I,j] = u[I+δ(i,I),j] - edge(I,j,∂(j,CartesianIndex(I+δ(i,I),i),u)) over I ∈ slice_u(N,i,j,1)
+            @loop u[I,j] = u[I-δ(i,I),j] + edge(I,j,∂(j,CartesianIndex(I,i),u)) over I ∈ slice_u(N,i,j,N[i])
         end # Normal direction ghosts, div=0
         @loop u[I,i] += WaterLily.div(I,u) over I ∈ WaterLily.slice(N.-1,1,i,2)
     end
 end
+slice_u(N::NTuple{n},i,j,s) where n = CartesianIndices(ntuple(k-> k==i ? (s:s) : k==j ? (2:N[k]) : (2:N[k]-1),n))

@@ -21,7 +21,7 @@ macro loop(args...)
 end
 
 # Extend some functions
-using WaterLily: up,down,CI
+using WaterLily: up,down
 KernelAbstractions.get_backend(nt::NTuple) = get_backend(first(nt))
 WaterLily.up(R::CartesianIndices) = first(up(first(R))):last(up(last(R)))
 WaterLily.down(R::CartesianIndices) = down(first(R)):down(last(R))
