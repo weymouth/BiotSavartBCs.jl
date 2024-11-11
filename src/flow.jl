@@ -19,20 +19,22 @@ end
 
 # project using biot BCs
 import WaterLily: residual!,Vcycle!,smooth!
-function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,x₀,tar,ftar,U;w=1,log=false,tol=1e-5,itmx=8) where n
+function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,v,x₀,tar,ftar,U;w=1,log=true,tol=1e-5,itmx=8) where n
     dt = w*a.Δt[end]; a.p .*= dt  # Scale p *= w*Δt
-    fill_ω!(ω,a.u,a.μ₀,a.p)       # Compute ω=∇×(u-μ₀∇p)
+    fill_ω!(ω,a.u,v,a.μ₀,a.p)       # Compute ω=∇×(u-μ₀∇p)
     biotBC!(a.u,U,ω,tar,ftar)     # Apply domain BCs
 
     b = ml_b.levels[1]
     @inside b.z[I] = WaterLily.div(I,a.u)   # Set σ=∇⋅u
     residual!(b); # fix_resid!(b.r) # Set r=Ax-σ, and ensure sum(r)=0
     nᵖ = 0
+    log && @show nᵖ,L₂(b)
     while nᵖ<itmx
         x₀ .= b.x                 # Remember current solution
         Vcycle!(ml_b); smooth!(b) # Improve solution
+        log && @show nᵖ+1/2,L₂(b)
         b.ϵ .= b.x .-x₀           # soln update: ϵ = x-x₀
-        fill_ω!(ω,a.μ₀,b.ϵ)       # vort update: Δω = -∇×μ₀∇ϵ
+        fill_ω!(ω,v,a.μ₀,b.ϵ)     # vort update: Δω = -∇×μ₀∇ϵ
         update_resid!(b.r,a.u,ω,tar,ftar) # Update domain BC and resid
         r₂ = L₂(b); nᵖ+=1
         log && @show nᵖ,r₂
