@@ -1,5 +1,5 @@
 # momentum step using bio_project
-import WaterLily: scale_u!,conv_diff!,BDIM!,CFL,accelerate!,time
+import WaterLily: scale_u!,conv_diff!,BDIM!,CFL,accelerate!,time,BCTuple
 function biot_mom_step!(a::Flow{N},b,ω...) where N
     a.u⁰ .= a.u; scale_u!(a,0)
     # predictor u → u'
@@ -18,17 +18,16 @@ function biot_mom_step!(a::Flow{N},b,ω...) where N
 end
 
 # project using biot BCs
-import WaterLily: residual!,Vcycle!,smooth!,L∞,restrictML,BCTuple
-function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,x₀,tar,ftar,U;w=1,log=false,tol=1e-6,itmx=32) where n    
+import WaterLily: residual!,Vcycle!,smooth!
+function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,x₀,tar,ftar,U;w=1,log=false,tol=1e-5,itmx=8) where n
     dt = w*a.Δt[end]; a.p .*= dt  # Scale p *= w*Δt
     fill_ω!(ω,a.u,a.μ₀,a.p)       # Compute ω=∇×(u-μ₀∇p)
     biotBC!(a.u,U,ω,tar,ftar)     # Apply domain BCs
 
     b = ml_b.levels[1]
     @inside b.z[I] = WaterLily.div(I,a.u)   # Set σ=∇⋅u
-    residual!(b); fix_resid!(b.r) # Set r=Ax-σ, and ensure sum(r)=0
-
-    r₂ = L₂(b); nᵖ = 0
+    residual!(b); # fix_resid!(b.r) # Set r=Ax-σ, and ensure sum(r)=0
+    nᵖ = 0
     while nᵖ<itmx
         x₀ .= b.x                 # Remember current solution
         Vcycle!(ml_b); smooth!(b) # Improve solution

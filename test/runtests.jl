@@ -95,10 +95,10 @@ using BiotSavartBCs: slice,interaction!
 end
 
 @testset "flow.jl" begin
-    sphere(D,U=1,m=2D) = Simulation((m,m,m), (U,0,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=U*D/1e4)
+    sphere(D,m=3D÷2) = Simulation((m,m,m), (1,0,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=D/1e4)
     sim = sphere(128); ω = MLArray(sim.flow.f); x₀ = copy(sim.flow.p); tar = collect_targets(ω); ftar = flatten_targets(tar);
     biot_mom_step!(sim.flow,sim.pois,ω,x₀,tar,ftar)
-    @test abs(maximum(sim.flow.u[:,:,:,1])-1.5)<0.02    # u_max = 3/2
-    @test abs(maximum(sim.flow.u[:,:,:,2:3])-0.75)<0.04 # v,w_max = 3/4
-    @test minimum(sim.flow.u[2,:,:,1])-8/9<0.01        # upstream slow down
+    @test abs(maximum(sim.flow.u[:,:,:,1])-1.5)<0.012    # u_max = 3/2
+    @test abs(maximum(sim.flow.u[:,:,:,2:3])-0.75)<0.033 # v,w_max = 3/4
+    @test minimum(sim.flow.u[2,:,:,1])-19/27<0.033       # upstream slow down
 end
