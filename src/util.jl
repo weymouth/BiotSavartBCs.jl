@@ -21,10 +21,13 @@ macro loop(args...)
 end
 
 # Extend some functions
-using WaterLily: up,down
+using WaterLily: up,down,inside
 KernelAbstractions.get_backend(nt::NTuple) = get_backend(first(nt))
 WaterLily.up(R::CartesianIndices) = first(up(first(R))):last(up(last(R)))
 WaterLily.down(R::CartesianIndices) = down(first(R)):down(last(R))
+WaterLily.inside(ndims::NTuple{n};buff=1) where n = CartesianIndices(map(N->(1+buff:N-buff),ndims))
+inside_u(a;buff=1) = inside_u(size_u(a)[1],buff)
+inside_u(ndims::NTuple{n},buff) where n = CartesianIndices((map(N->(1+buff:N-buff),ndims)...,1:n))
 
 # Vector multi-level constructor (top level points to u, doesn't copy)
 using WaterLily: divisible,size_u
@@ -51,8 +54,6 @@ restrict!(a,b) = @loop a[Ii] = restrict(Ii,b) over Ii ∈ inside_u(a)
      s += @inbounds(b[J,last(Ii)])
     end; s
 end
-inside_u(a;buff=1) = inside_u(size_u(a)[1],buff)
-inside_u(ndims::NTuple{n},buff) where n = CartesianIndices((map(N->(1+buff:N-buff),ndims)...,1:n))
 
 # Collect "targets" on the faces of a MLArray
 using Base.Iterators

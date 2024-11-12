@@ -16,17 +16,18 @@ shifted(T::CartesianIndex{N},i) where N = SVector{N,Float32}(ntuple(j-> j==i ? (
 Base.@propagate_inbounds @fastmath function biot(ω,Ti,l,depth)
     i,T = last(Ti),front(Ti)
     val = zero(eltype(ω))
-    domain = CartesianIndices(map(N->(2:N-1),size_u(ω)[1]))
-    R,Rclose = remaining(T,domain),close(T,domain)
-    l == depth && (R = domain)
-    # Should test against https://github.com/JuliaArrays/TiledIteration.jl?tab=readme-ov-file#edgeiterator
-    if l == 1
-        for S in R
+    domain = inside(size_u(ω)[1])
+    Router,Rinner = remaining(T,domain),close(T,domain)
+    l == depth && (Router = domain)
+    if l == 1 # Top level
+        # Do everything remaining inside buff=2
+        for S in inR(Router,inside(size_u(ω)[1],buff=2))
             val += weighted(i,T,S,ω)
         end
-    elseif R≠Rclose
-        for S in R
-            S ∉ Rclose && (val += weighted(i,T,S,ω))
+    elseif Rinner≠Router
+        # Should test against https://github.com/JuliaArrays/TiledIteration.jl?tab=readme-ov-file#edgeiterator
+        for S in Router
+            S ∉ Rinner && (val += weighted(i,T,S,ω))
         end
     end; val
 end
