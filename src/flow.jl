@@ -52,7 +52,7 @@ end
 function biotBC_r!(r,u,U,ω,tar,ftar)
     interaction!(ω,ftar)
     project!(ω,tar)
-    @loop _update_resid!(r,u,U,ω[1],ω[2],Ii) over Ii ∈ tar[1]
+    @loop2 _update_resid!(r,u,U,ω[1],ω[2],Ii) over Ii ∈ tar[1]
     fix_resid!(r)
 end 
 Base.@propagate_inbounds @fastmath function _update_resid!(r,u,U,a,b,Ii)

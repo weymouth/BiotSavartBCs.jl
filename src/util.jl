@@ -1,7 +1,7 @@
 # improved loop function
 using KernelAbstractions
 using KernelAbstractions: get_backend,@kernel,@index,@Const
-macro loop(args...)
+macro loop2(args...)
     ex,_,itr = args
     _,I,R = itr.args; 
     sym,symI = [],[]
@@ -21,7 +21,7 @@ macro loop(args...)
 end
 
 # Extend some functions
-using WaterLily: up,down,inside
+using WaterLily: up,down,inside,@loop
 KernelAbstractions.get_backend(nt::NTuple) = get_backend(first(nt))
 WaterLily.up(R::CartesianIndices) = first(up(first(R))):last(up(last(R)))
 WaterLily.down(R::CartesianIndices) = down(first(R)):down(last(R))
@@ -66,7 +66,7 @@ flatten_targets(targets) = mapreduce(((level,targets),)->map(T->(level,T),target
 project!(ml::Tuple,mltargets::Tuple) = for l ∈ reverse(2:lastindex(ml)-1)
     project!(ml[l],ml[l+1],mltargets[l])
 end
-project!(a,b,targets) = @loop a[Ii] += 0.25f0project(Ii,b) over Ii ∈ targets
+project!(a,b,targets) = @loop2 a[Ii] += 0.25f0project(Ii,b) over Ii ∈ targets
 # project(Ii::CartesianIndex,b) = @inbounds(b[down(front(Ii)),last(Ii)])
 @fastmath function project(Ii::CartesianIndex,b)
     I,i,N = front(Ii),last(Ii),size_u(b)[1]

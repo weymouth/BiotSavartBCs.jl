@@ -37,13 +37,13 @@ inR(x,R) = max(first(x),first(R)):min(last(x),last(R))
 
 # Interaction on targets
 @inline _interaction!(ω,lT) = ((l,T) = lT; ω[l][T] = biot(ω[l],T,l,length(ω)))
-interaction!(ω,flat_targets) = @loop _interaction!(ω,lT) over lT ∈ flat_targets
+interaction!(ω,flat_targets) = @loop2 _interaction!(ω,lT) over lT ∈ flat_targets
 
 # Biot-Savart BC
 function biotBC!(u,U,ω,targets,flat_targets)
     interaction!(ω,flat_targets)
     project!(ω,targets)
-    @loop biot_finish!(u,U,ω[1],ω[2],Ii) over Ii ∈ targets[1]
+    @loop2 biot_finish!(u,U,ω[1],ω[2],Ii) over Ii ∈ targets[1]
 end
 Base.@propagate_inbounds @fastmath function biot_finish!(u,U,a,b,Ii)
     i,I = last(Ii),front(Ii)
