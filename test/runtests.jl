@@ -2,18 +2,18 @@ using BiotSavartBCs
 using Test
 using WaterLily
 
-using BiotSavartBCs: @loop2,inside_u,restrict!,project!,down,front,step
+using BiotSavartBCs: @vecloop,inside_u,restrict!,project!,down,front,step
 @testset "util.jl" begin
     a = zeros(Int,(4,4,6,3))
-    @loop2 a[I] += 1 over I in inside_u(a,buff=2)
+    @vecloop a[I] += 1 over I in inside_u(a,buff=2)
     @test sum(a) == 0
-    @loop2 a[I] += 1 over I in inside_u(a)
+    @vecloop a[I] += 1 over I in inside_u(a)
     @test sum(a) == length(inside_u(a)) == 2*2*4*3
 
     a = zeros(Int,(10,10,18,3))
     ml=MLArray(a)
     @test length(ml)==3
-    @loop2 a[I] += 1 over I in inside_u(a)
+    @vecloop a[I] += 1 over I in inside_u(a)
     @test sum(first(ml)) == length(inside_u(a))
     restrict!(ml)
     @test sum(last(ml)) == length(inside_u(a))
@@ -24,7 +24,7 @@ using BiotSavartBCs: @loop2,inside_u,restrict!,project!,down,front,step
     T,i = front(Ti),last(Ti)
     @test CartesianIndex(down(T),i)==last(tar[3])
     
-    @loop2 ml[3][I] += 4 over I in tar[3]
+    @vecloop ml[3][I] += 4 over I in tar[3]
     project!(ml,tar)
     @test ml[2][Ti] == 1
 

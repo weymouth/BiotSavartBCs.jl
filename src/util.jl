@@ -1,19 +1,17 @@
-# improved loop function
+# Loop macro over an index vector R
 using KernelAbstractions
 using KernelAbstractions: get_backend,@kernel,@index,@Const
-macro loop2(args...)
+macro vecloop(args...)
     ex,_,itr = args
-    _,I,R = itr.args; 
-    sym,symI = [],[]
+    _,I,R = itr.args; sym = []
     # grab arguments and replace composites
     WaterLily.grab!(sym,ex)
-    WaterLily.grab!(symI,I)
-    setdiff!(sym,symI) # don't want to pass index as an argument
-    @gensym kern i    # generate unique kernel function name
+    setdiff!(sym,[I]) # don't want to pass index as an argument
+    @gensym kern ind  # generate unique names
     return quote
         @kernel function $kern($(WaterLily.rep.(sym)...)) # replace composite arguments
-            $i = @index(Global,Linear)
-            $I = $R[$i]
+            $ind = @index(Global,Linear) # linear index
+            @inbounds $I = $R[$ind]      # this is expensive unless R is a vector
             @fastmath @inbounds $ex
         end
         $kern(get_backend($(sym[1])),64)($(sym...),ndrange=length($R))
@@ -66,7 +64,7 @@ flatten_targets(targets) = mapreduce(((level,targets),)->map(T->(level,T),target
 project!(ml::Tuple,mltargets::Tuple) = for l ∈ reverse(2:lastindex(ml)-1)
     project!(ml[l],ml[l+1],mltargets[l])
 end
-project!(a,b,targets) = @loop2 a[Ii] += 0.25f0project(Ii,b) over Ii ∈ targets
+project!(a,b,targets) = @vecloop a[Ii] += 0.25f0project(Ii,b) over Ii ∈ targets
 # project(Ii::CartesianIndex,b) = @inbounds(b[down(front(Ii)),last(Ii)])
 @fastmath function project(Ii::CartesianIndex,b)
     I,i,N = front(Ii),last(Ii),size_u(b)[1]
