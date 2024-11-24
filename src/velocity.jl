@@ -31,9 +31,6 @@ Base.@propagate_inbounds @fastmath function biot(ω,Ti,l,depth)
         end
     end; val
 end
-close(T,R) = inR(T-2oneunit(T):T+2oneunit(T),R)
-remaining(T,R) = up(close(down(T),down(R)))
-inR(x,R) = max(first(x),first(R)):min(last(x),last(R))
 
 # Interaction on targets
 @inline _interaction!(ω,lT) = ((l,T) = lT; ω[l][T] = biot(ω[l],T,l,length(ω)))

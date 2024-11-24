@@ -28,17 +28,21 @@ inside_u(a;buff=1) = inside_u(size_u(a)[1],buff)
 inside_u(ndims::NTuple{n},buff) where n = CartesianIndices((map(N->(1+buff:N-buff),ndims)...,1:n))
 
 # Vector multi-level constructor (top level points to u, doesn't copy)
-using WaterLily: divisible,size_u
+using WaterLily: size_u
 function MLArray(u)
     N,n = size_u(u)
     levels = []
-    while all(N .|> divisible)
-        N = @. 1+N÷2
+    while true
+        N = @. 1+N÷2; R = inside(N)
+        close(first(R),R) == R && break
         push!(levels,N)
     end
     zeros_like_u(N,n) = (y = similar(u,N...,n); fill!(y,0); y)
     return (u,map(N->zeros_like_u(N,n),levels)...)
 end
+close(T,R) = inR(T-2oneunit(T):T+2oneunit(T),R)
+remaining(T,R) = up(close(down(T),down(R)))
+inR(x,R) = max(first(x),first(R)):min(last(x),last(R))
 
 # Extend restrict(!) for MLArrays
 using Base: front,last
