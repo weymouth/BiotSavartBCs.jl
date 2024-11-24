@@ -27,14 +27,18 @@ function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,x₀,tar,ftar,U;w=1
 
     b = ml_b.levels[1]
     @inside b.z[I] = WaterLily.div(I,a.u)   # Set σ=∇⋅u
-    residual!(b); nᵖ = 0
+    residual!(b); nᵖ,nᵇ,r₂ = 0,0,L₂(b)
     while nᵖ<itmx
-        Vcycle!(ml_b); smooth!(b)
+        rtol = max(tol,0.1r₂)
+        while r₂>rtol
+            Vcycle!(ml_b); smooth!(b)
+            r₂ = L₂(b); nᵖ+=1
+        end
         apply_grad_p!(a.u,ω,a.p,a.μ₀)   # Update u,ω
         x₀ .+= a.p; fill!(a.p,0)        # Update solution
         biotBC_r!(b.r,a.u,U,ω,tar,ftar) # Update BC+residual
-        r₂ = L₂(b); nᵖ+=1
-        log && @show nᵖ,r₂
+        r₂ = L₂(b); nᵇ+=1
+        log && @show nᵖ,nᵇ,r₂
         r₂<tol && break
     end
     push!(ml_b.n,nᵖ)
