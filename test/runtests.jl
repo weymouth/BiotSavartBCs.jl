@@ -24,9 +24,9 @@ using BiotSavartBCs: @vecloop,inside_u,restrict!,project!,down,front,step
     T,i = front(Ti),last(Ti)
     @test CartesianIndex(down(T),i)==last(tar[3])
     
-    @vecloop ml[3][I] += 4 over I in tar[3]
+    @vecloop ml[3][I] += 16 over I in tar[3]
     project!(ml,tar)
-    @test ml[2][Ti] == 1
+    @test ml[2][Ti] == 4
 
     @test length(flatten_targets(tar)) == sum(length,tar)
     @test flatten_targets(tar)[sum(length,tar[1:2])] == (2,Ti)
@@ -65,7 +65,8 @@ using BiotSavartBCs: slice,interaction!
 
     tol = (0.02,0.02,0.048) # Hill vortex has largest uₙ on z faces
     for i in 1:3, s in (2,N)
-        @test maximum(I->abs(u[I]-u₀[I]),slice(size(u),i,s)) < tol[i]
+        mx = maximum(I->abs(u[I]-u₀[I]),slice(size(u),i,s))
+        @test mx < tol[i]
     end
 
     # Tangential ghosts are great

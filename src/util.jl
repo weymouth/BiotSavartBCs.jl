@@ -32,9 +32,10 @@ using WaterLily: size_u
 function MLArray(u)
     N,n = size_u(u)
     levels = []
+    I = CartesianIndex(ntuple(i-> i==1 ? 1 : 2, n))
     while true
         N = @. 1+N÷2; R = inside(N)
-        close(first(R),R) == R && break
+        close(I,R) == R && break
         push!(levels,N)
     end
     zeros_like_u(N,n) = (y = similar(u,N...,n); fill!(y,0); y)
