@@ -30,7 +30,7 @@ function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,x₀,tar,ftar,U;w=1
     residual!(b); nᵖ,nᵇ,r₂ = 0,0,L₂(b)
     while nᵖ<itmx
         rtol = max(tol,0.1r₂)
-        while r₂>rtol
+        while r₂>rtol && nᵖ<itmx
             Vcycle!(ml_b); smooth!(b)
             r₂ = L₂(b); nᵖ+=1
         end
