@@ -13,19 +13,19 @@ Base.@propagate_inbounds @fastmath function tree(ml,Ti)
     for S in Rinner
         val += weighted(x-SVector{3,Float32}(S.I),S,i,ω)
     end
-    @show Rinner, val
+    # @show Rinner, val
 
     # Loop down levels
     x = x .- 1.5f0 # adjust origin for scaling
     for l in 2:lastindex(ml)
-        ω = ml[l], T = down(T)
+        ω = ml[l]; T = down(T)
         domain = inside(size_u(ω)[1])
         Rinner = close(T,domain)
         Router = l == lastindex(ml) ? domain : remaining(T,domain)
         Rinner ≠ Router && for S in Router
             S ∉ Rinner && (val += weighted(x-(SVector{3,Float32}(S.I) .- 1.5f0)*2^(l-1),S,i,ω))
         end
-        @show T, Rinner, Router, val
+        # @show T, Rinner, Router, val
     end; val
 end
 
