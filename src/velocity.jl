@@ -6,15 +6,13 @@ Base.@propagate_inbounds centered_curl(Ii,u) = (I=front(Ii); i=last(Ii); permute
 
 # inverse distance weighted source
 using StaticArrays
-Base.@propagate_inbounds @fastmath function weighted(i,T,S,ω)
-    r = shifted(T,i)+SVector{3,Float32}((T-S).I)
-    permute((j,k)->@inbounds(ω[S,j]*r[k]),i)/√(r'*r)^3
-end
+@inline weighted(r::SVector{3,Float32},S::CartesianIndex{3},i,ω) = permute((j,k)->@inbounds(ω[S,j]*r[k]),i)/√(r'*r)^3
 shifted(T::CartesianIndex{N},i) where N = SVector{N,Float32}(ntuple(j-> j==i ? (T.I[i]==1 ? 0.5 : -0.5) : 0,N))
 
 # Sum over sources for a target (excluding adjacent points)
 Base.@propagate_inbounds @fastmath function biot(ω,Ti,l,depth)
     i,T = last(Ti),front(Ti)
+    x = shifted(T,i)+SVector{3,Float32}(T.I)
     val = zero(eltype(ω))
     domain = inside(size_u(ω)[1])
     Router,Rinner = remaining(T,domain),close(T,domain)
@@ -22,12 +20,11 @@ Base.@propagate_inbounds @fastmath function biot(ω,Ti,l,depth)
     if l == 1 # Top level
         # Do everything remaining inside buff=2
         for S in inR(Router,inside(size_u(ω)[1],buff=2))
-            val += weighted(i,T,S,ω)
+            val += weighted(x-SVector{3,Float32}(S.I),S,i,ω)
         end
     elseif Rinner≠Router
-        # Should test against https://github.com/JuliaArrays/TiledIteration.jl?tab=readme-ov-file#edgeiterator
         for S in Router
-            S ∉ Rinner && (val += weighted(i,T,S,ω))
+            S ∉ Rinner && (val += weighted(x-SVector{3,Float32}(S.I),S,i,ω))
         end
     end; val
 end
