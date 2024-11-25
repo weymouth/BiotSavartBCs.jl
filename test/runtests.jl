@@ -83,6 +83,21 @@ using BiotSavartBCs: slice,interaction!
     end
 end
 
+@testset "tree.jl" begin
+    N = 2+3*2^3; U=(0,0,1)
+    u = Array{Float32}(undef,(N,N,N,3)); apply!(hill_vortex(N),u); u₀ = copy(u)
+    ω = MLArray(zeros(Float32,N,N,N,3)); tar = collect_targets(ω)
+    fill_ω!(ω,u)
+    BC!(u,U) # mess up BCs
+    treeBC!(u,U,ω,tar[1]) # fix face uₙ
+
+    tol = (0.0025,0.0025,0.02) # Hill vortex has largest uₙ on z faces
+    for i in 1:3, s in (2,N)
+        mx = maximum(I->abs(u[I]-u₀[I]),slice(size(u),i,s))
+        @test mx < tol[i]
+    end
+end
+
 @testset "flow.jl" begin
     sphere(D,m=3D÷2) = Simulation((m,m,m), (1,0,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=D/1e4)
     sim = sphere(128); ω = MLArray(sim.flow.f); x₀ = copy(sim.flow.p); tar = collect_targets(ω); ftar = flatten_targets(tar);
