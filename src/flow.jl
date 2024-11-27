@@ -26,8 +26,10 @@ function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,x₀,tar,ftar,U;fmm
     biotBC!(a.u,U,ω,tar,ftar;fmm) # Apply domain BCs
 
     b = ml_b.levels[1]
-    @inside b.z[I] = WaterLily.div(I,a.u)   # Set σ=∇⋅u
-    residual!(b); nᵖ,nᵇ,r₂ = 0,0,L₂(b)
+    @inside b.r[I] = WaterLily.div(I,a.u)   # Set σ=∇⋅u
+    fix_resid!(b.r,tar[1]) # only fix on the boundaries
+
+    nᵖ,nᵇ,r₂ = 0,0,L₂(b)
     while nᵖ<itmx
         rtol = max(tol,0.1r₂)
         while r₂>rtol && nᵖ<itmx
