@@ -5,13 +5,14 @@ using WaterLily
 include("util.jl")
 export MLArray,collect_targets,flatten_targets
 
+include("fmm.jl")
+
+include("tree.jl")
+
 include("velocity.jl")
 export fill_ω!,biotBC!,pflowBC!
 
-include("tree.jl")
-export treeBC!
-
 include("flow.jl")
-export biot_mom_step!,fix_resid!
+export biot_mom_step!
 
 end

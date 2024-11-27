@@ -1,4 +1,4 @@
-# Tree sum over sources for a target
+# Tree sum over sources at all levels
 Base.@propagate_inbounds @fastmath function tree(ml,Ti)
     i,T = last(Ti),front(Ti)
     x = shifted(T,i)+SVector{3,Float32}(T.I)
@@ -30,17 +30,14 @@ Base.@propagate_inbounds @fastmath function tree(ml,Ti)
 end
 
 # Biot-Savart BC using the tree sum
-treeBC!(u,U,ml,targets) = @vecloop tree_finish!(u,U,ml,Ii) over Ii ∈ targets
-Base.@propagate_inbounds @fastmath function tree_finish!(u,U,ml,Ii)
+treeBC!(u,U,ml,targets) = @vecloop tree_velo!(u,U,ml,Ii) over Ii ∈ targets
+Base.@propagate_inbounds @fastmath function tree_velo!(u,U,ml,Ii)
     i,I = last(Ii),front(Ii)
     I.I[i]==1 && (I = I+δ(i,I)) # shift for "left" vector field face
     u[I,i] = U[i]+tree(ml,Ii)/Float32(4π)
 end
-function treeBC_r!(r,u,U,ml,targets)
-    @vecloop tree_resid!(r,u,U,ml,Ii) over Ii ∈ targets
-    fix_resid!(r)
-end 
-Base.@propagate_inbounds @fastmath function tree_resid!(r,u,U,ml,Ii)
+treeBC_r!(r,u,U,ml,targets) = @vecloop tree_velo_resid!(r,u,U,ml,Ii) over Ii ∈ targets
+Base.@propagate_inbounds @fastmath function tree_velo_resid!(r,u,U,ml,Ii)
     I,i = front(Ii),last(Ii); lower = I.I[i]==1
     uI = lower ? Ii+δ(i,Ii) : Ii
 

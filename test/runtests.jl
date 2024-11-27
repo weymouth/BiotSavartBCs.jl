@@ -43,7 +43,7 @@ function hill_vortex(N;D=3N/4)
     end
 end
 
-using BiotSavartBCs: slice,interaction!
+using BiotSavartBCs: slice
 @testset "velocity.jl" begin
     # Hill ring vortex in 3D
     N = 2+2^5
@@ -60,16 +60,18 @@ using BiotSavartBCs: slice,interaction!
     ω = MLArray(zeros(Float32,N,N,N,3)); tar = collect_targets(ω); ftar = flatten_targets(tar);
     fill_ω!(ω,u)
     BC!(u,U) # mess up BCs
-    biotBC!(u,U,ω,tar,ftar) # fix face uₙ
-    pflowBC!(u) # fix ghosts
 
-    tol = (0.02,0.02,0.048) # Hill vortex has largest uₙ on z faces
+    # Check domain uₙ using FMM-version of Biot-Savart BCs
+    biotBC!(u,U,ω,tar,ftar)
+    tol = (0.0222,0.0222,0.05) # Hill vortex has largest uₙ on z faces
     for i in 1:3, s in (2,N)
         mx = maximum(I->abs(u[I]-u₀[I]),slice(size(u),i,s))
+        # @show i,s,mx
         @test mx < tol[i]
     end
 
     # Tangential ghosts are great
+    pflowBC!(u) # fix ghosts
     @test maximum(abs,(u.-u₀)[3:end-1,2:end-1,1,1])<0.02
     @test maximum(abs,(u.-u₀)[3:end-1,2:end-1,end,1])<0.02
     @test maximum(abs,(u.-u₀)[2:end-1,3:end-1,1,2])<0.02
@@ -81,28 +83,31 @@ using BiotSavartBCs: slice,interaction!
     for i in 1:3
         @test maximum(I->abs(u[I]-u₀[I]),slice(size(u),i,1)) < 0.06
     end
-end
 
-@testset "tree.jl" begin
-    N = 2+3*2^3; U=(0,0,1)
-    u = Array{Float32}(undef,(N,N,N,3)); apply!(hill_vortex(N),u); u₀ = copy(u)
-    ω = MLArray(zeros(Float32,N,N,N,3)); tar = collect_targets(ω)
-    fill_ω!(ω,u)
+    # Check domain uₙ using tree-version of Biot-Savart BCs
     BC!(u,U) # mess up BCs
-    treeBC!(u,U,ω,tar[1]) # fix face uₙ
-
-    tol = (0.0025,0.0025,0.02) # Hill vortex has largest uₙ on z faces
+    biotBC!(u,U,ω,tar,ftar,fmm=false) # tree
+    tol = (0.004,0.004,0.02) # No target interpolation error!
     for i in 1:3, s in (2,N)
         mx = maximum(I->abs(u[I]-u₀[I]),slice(size(u),i,s))
+        # @show i,s,mx
         @test mx < tol[i]
     end
 end
 
 @testset "flow.jl" begin
     sphere(D,m=3D÷2) = Simulation((m,m,m), (1,0,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=D/1e4)
-    sim = sphere(128); ω = MLArray(sim.flow.f); x₀ = copy(sim.flow.p); tar = collect_targets(ω); ftar = flatten_targets(tar);
-    biot_mom_step!(sim.flow,sim.pois,ω,x₀,tar,ftar)
-    @test abs(maximum(sim.flow.u[:,:,:,1])-1.5)<0.012    # u_max = 3/2
-    @test abs(maximum(sim.flow.u[:,:,:,2:3])-0.75)<0.033 # v,w_max = 3/4
-    @test minimum(sim.flow.u[2,:,:,1])-19/27<0.033       # upstream slow down
+    for fmm in (true,false)
+        sim = sphere(128); ω = MLArray(sim.flow.f); x₀ = copy(sim.flow.p); tar = collect_targets(ω); ftar = flatten_targets(tar);
+        biot_mom_step!(sim.flow,sim.pois,ω,x₀,tar,ftar;fmm)
+        u_max = maximum(sim.flow.u[:,:,:,1])
+        v_max = maximum(sim.flow.u[:,:,:,2:3])
+        u_inf = minimum(sim.flow.u[2,:,:,1])
+        @show fmm,u_max,v_max,u_inf
+        @test abs(u_max-1.5)<0.012    # u_max = 3/2
+        @test abs(v_max-0.75)<0.035   # v,w_max = 3/4
+        @test abs(u_inf-19/27)<0.033  # upstream slow down
+        @time biot_mom_step!(sim.flow,sim.pois,ω,x₀,tar,ftar;fmm)
+        @show sim.pois.n
+    end
 end
