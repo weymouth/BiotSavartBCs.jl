@@ -27,5 +27,6 @@ biotBC_r!(r,u,U,ω,targets,flat_targets;fmm=true) = (_biotBC_r!(r,u,U,ω,targets
 fix_resid!(r,targets,fix=sum(r)/length(targets)) = @vecloop _fix_resid!(r,fix,Ii) over Ii ∈ targets
 @inline function _fix_resid!(r,fix,Ii)
     I,i = front(Ii),last(Ii)
-    r[I+δ(i,I)] -= fix
+    step = I.I[i]==1 ? δ(i,I) : -δ(i,I)
+    r[I+step] -= fix
 end
