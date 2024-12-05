@@ -22,11 +22,12 @@ slice_u(N::NTuple{n},i,j,s) where n = CartesianIndices(ntuple(k-> k==i ? (s:s) :
 # Biot-Savart BCs
 biotBC!(u,U,ω,targets,flat_targets;fmm=true) = fmm ? fmmBC!(u,U,ω,targets,flat_targets) : treeBC!(u,U,ω,targets[1])
 _biotBC_r!(r,u,U,ω,targets,flat_targets,fmm) = fmm ? fmmBC_r!(r,u,U,ω,targets,flat_targets) : treeBC_r!(r,u,U,ω,targets[1])
-biotBC_r!(r,u,U,ω,targets,flat_targets;fmm=true) = (_biotBC_r!(r,u,U,ω,targets,flat_targets,fmm); fix_resid!(r,targets[1]))
+biotBC_r!(r,u,U,ω,targets,flat_targets;fmm=true) = (_biotBC_r!(r,u,U,ω,targets,flat_targets,fmm); fix_resid!(r,u,targets[1]))
 
-fix_resid!(r,targets,fix=sum(r)/length(targets)) = @vecloop _fix_resid!(r,fix,Ii) over Ii ∈ targets
-@inline function _fix_resid!(r,fix,Ii)
+fix_resid!(r,u,targets,fix=sum(r)/length(targets)) = @vecloop _fix_resid!(r,u,fix,Ii) over Ii ∈ targets
+@inline function _fix_resid!(r,u,fix,Ii)
     I,i = front(Ii),last(Ii)
-    step = I.I[i]==1 ? δ(i,I) : -δ(i,I)
-    r[I+step] -= fix
+    left = I.I[i]==1
+    r[I+ (left ? δ(i,I) : -δ(i,I))] -= fix
+    u[I+ (left ? δ(i,I) : zero(I)),i] += fix*(left ? 1 : -1)
 end

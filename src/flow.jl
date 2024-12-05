@@ -16,16 +16,17 @@ function biot_mom_step!(a::Flow{N},b,ω...;fmm=true) where N
 end
 
 # project using biot BCs
-import WaterLily: residual!,Vcycle!,smooth!
+import WaterLily: Vcycle!,smooth!
 function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,x₀,tar,ftar,U;fmm=true,w=1,log=false,tol=1e-5,itmx=8) where n
     dt = w*a.Δt[end]; a.p .*= dt  # Scale p *= w*Δt
     apply_grad_p!(a.u,ω,a.p,a.μ₀) # Apply u-=μ₀∇p & ω=∇×u
     x₀ .= a.p; fill!(a.p,0)       # x₀ holds p solution
     biotBC!(a.u,U,ω,tar,ftar;fmm) # Apply domain BCs
 
-    b = ml_b.levels[1]
-    @inside b.r[I] = WaterLily.div(I,a.u)   # Set σ=∇⋅u
-    fix_resid!(b.r,tar[1]) # only fix on the boundaries
+    # Set residual
+    b = ml_b.levels[1]; b.r .= 0
+    @inside b.r[I] = ifelse(b.iD[I]==0,0,WaterLily.div(I,a.u))
+    fix_resid!(b.r,a.u,tar[1]) # only fix on the boundaries
 
     nᵖ,nᵇ,r₂ = 0,0,L₂(b)
     while nᵖ<itmx
