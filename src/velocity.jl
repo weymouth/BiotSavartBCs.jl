@@ -21,13 +21,29 @@ slice_u(N::NTuple{n},i,j,s) where n = CartesianIndices(ntuple(k-> k==i ? (s:s) :
 
 # Biot-Savart BCs
 biotBC!(u,U,ω,targets,flat_targets;fmm=true) = fmm ? fmmBC!(u,U,ω,targets,flat_targets) : treeBC!(u,U,ω,targets[1])
+Base.@propagate_inbounds @fastmath function set_velo!(u,U,ω,Ii,fnc)
+    i,I = last(Ii),front(Ii)
+    I.I[i]==1 && (I = I+δ(i,I)) # shift for "left" vector field face
+    u[I,i] = U[i]+fnc(ω,Ii)
+end
+
+using Atomix
 _biotBC_r!(r,u,U,ω,targets,flat_targets,fmm) = fmm ? fmmBC_r!(r,u,U,ω,targets,flat_targets) : treeBC_r!(r,u,U,ω,targets[1])
 biotBC_r!(r,u,U,ω,targets,flat_targets;fmm=true) = (_biotBC_r!(r,u,U,ω,targets,flat_targets,fmm); fix_resid!(r,u,targets[1]))
+Base.@propagate_inbounds @fastmath function velo_resid!(r,u,U,ω,Ii,fnc)
+    I,i = front(Ii),last(Ii); lower = I.I[i]==1
+    uI = lower ? Ii+δ(i,Ii) : Ii
+
+    # Set velocity and update residual
+    uₙ = U[i]+fnc(ω,Ii)
+    uₙ⁰ = u[uI]; u[uI] = uₙ
+    Atomix.@atomic r[I+(lower ? δ(i,I) : -δ(i,I))] += (uₙ-uₙ⁰)*(lower ? -1 : 1)
+end
 
 fix_resid!(r,u,targets,fix=sum(r)/length(targets)) = @vecloop _fix_resid!(r,u,fix,Ii) over Ii ∈ targets
 @inline function _fix_resid!(r,u,fix,Ii)
     I,i = front(Ii),last(Ii)
     left = I.I[i]==1
-    r[I+ (left ? δ(i,I) : -δ(i,I))] -= fix
+    Atomix.@atomic r[I+ (left ? δ(i,I) : -δ(i,I))] -= fix
     u[I+ (left ? δ(i,I) : zero(I)),i] += fix*(left ? 1 : -1)
 end

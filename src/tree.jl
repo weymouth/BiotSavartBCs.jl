@@ -1,7 +1,7 @@
 # Tree sum over sources at all levels
-Base.@propagate_inbounds @fastmath function tree(ml,Ti)
-    i,T = last(Ti),front(Ti)
-    x = shifted(T,i)+SVector{3,Float32}(T.I)
+Base.@propagate_inbounds @fastmath function tree(ml,Ti::CartesianIndex{Np1}) where Np1
+    i,T,N = last(Ti),front(Ti),Np1-1
+    x = shifted(T,i)+SVector{N,Float32}(T.I)
 
     #Top level
     ω = first(ml)
@@ -11,7 +11,7 @@ Base.@propagate_inbounds @fastmath function tree(ml,Ti)
     Rinner = inR(Router,inside(size_u(ω)[1],buff=2))
     # Do everything remaining inside buff=2
     for S in Rinner
-        val += weighted(x-SVector{3,Float32}(S.I),S,i,ω)
+        val += weighted(x-SVector{N,Float32}(S.I),S,i,ω)
     end
     # @show Rinner, val
 
@@ -23,26 +23,12 @@ Base.@propagate_inbounds @fastmath function tree(ml,Ti)
         Rinner = close(T,domain)
         Router = l == lastindex(ml) ? domain : remaining(T,domain)
         Rinner ≠ Router && for S in Router
-            S ∉ Rinner && (val += weighted(x-(SVector{3,Float32}(S.I) .- 1.5f0)*2^(l-1),S,i,ω))
+            S ∉ Rinner && (val += weighted(x-(SVector{N,Float32}(S.I) .- 1.5f0)*2^(l-1),S,i,ω))
         end
         # @show T, Rinner, Router, val
     end; val
 end
 
 # Biot-Savart BC using the tree sum
-treeBC!(u,U,ml,targets) = @vecloop tree_velo!(u,U,ml,Ii) over Ii ∈ targets
-Base.@propagate_inbounds @fastmath function tree_velo!(u,U,ml,Ii)
-    i,I = last(Ii),front(Ii)
-    I.I[i]==1 && (I = I+δ(i,I)) # shift for "left" vector field face
-    u[I,i] = U[i]+tree(ml,Ii)/Float32(4π)
-end
-treeBC_r!(r,u,U,ml,targets) = @vecloop tree_velo_resid!(r,u,U,ml,Ii) over Ii ∈ targets
-Base.@propagate_inbounds @fastmath function tree_velo_resid!(r,u,U,ml,Ii)
-    I,i = front(Ii),last(Ii); lower = I.I[i]==1
-    uI = lower ? Ii+δ(i,Ii) : Ii
-
-    # Update velocity and residual
-    uₙ = U[i]+tree(ml,Ii)/Float32(4π)
-    uₙ⁰ = u[uI]; u[uI] = uₙ
-    sgn = lower ? -1 : 1; r[I-sgn*δ(i,I)] += sgn*(uₙ-uₙ⁰)
-end
+treeBC!(u,U,ml,targets) = @vecloop set_velo!(u,U,ml,Ii,tree) over Ii ∈ targets
+treeBC_r!(r,u,U,ml,targets) = @vecloop velo_resid!(r,u,U,ml,Ii,tree) over Ii ∈ targets
