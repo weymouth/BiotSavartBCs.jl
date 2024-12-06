@@ -30,8 +30,39 @@ using BiotSavartBCs: @vecloop,inside_u,restrict!,project!,down,front,step
 
     @test length(flatten_targets(tar)) == sum(length,tar)
     @test flatten_targets(tar)[sum(length,tar[1:2])] == (2,Ti)
+
+    a = zeros(Int,(34,34,2))
+    ml=MLArray(a)
+    @test length(ml)==3 # much bigger dis in 2D
+    @vecloop a[I] += 1 over I in inside_u(a)
+    @test sum(first(ml)) == length(inside_u(a))
+    restrict!(ml)
+    @test sum(last(ml)) == length(inside_u(a))
+
+    tar = collect_targets(ml)
+    @test length(tar[1]) == 2length(tar[2]) == 4length(tar[3])
+    Ti = last(tar[2])
+    T,i = front(Ti),last(Ti)
+    @test CartesianIndex(down(T),i)==last(tar[3])
+    
+    @vecloop ml[3][I] += 4 over I in tar[3]
+    project!(ml,tar)
+    @test ml[2][Ti] == 2
 end
 
+using SpecialFunctions,ForwardDiff
+function lamb_dipole(N;D=3N/4,U=1)
+    β = 2.4394π/D
+    C = -2U/(β*besselj0(β*D/2))
+    function ψ(x,y)
+        r = √(x^2+y^2)
+        ifelse(r ≥ D/2, U*((D/2r)^2-1)*y, C*besselj1(β*r)*y/r)
+    end
+    return function uλ(i,xy)
+        x,y = xy .- (N-2)/2
+        ifelse(i==1,ForwardDiff.derivative(y->ψ(x,y),y)+1+U,-ForwardDiff.derivative(x->ψ(x,y),x))
+    end
+end
 function hill_vortex(N;D=3N/4)
     return function uλ(i,xyz)
         q = xyz .- (N-2)/2; x,y,z = q; r = √(q'*q); θ = acos(z/r); ϕ = atan(y,x)
@@ -93,6 +124,25 @@ using BiotSavartBCs: slice
         # @show i,s,mx
         @test mx < tol[i]
     end
+
+    pow = 5; N = 2+2^pow; U = (1,0)
+    u = Array{Float32}(undef,(N,N,2)); apply!(lamb_dipole(N),u); u₀ = copy(u)
+    ω = MLArray(zeros(Float32,N,N,2)); tar = collect_targets(ω); ftar = flatten_targets(tar);
+
+    fill_ω!(ω,u)
+    @test all(ω[1][:,:,2].==0) # we don't use the second component
+    @test all(ω[1][[2,N-1],:,1].==0) # no vorticity outside the bubble
+    @test all(@. abs(sum(ω))<12e-5) # zero-sum at every level
+
+    BC!(u,U) # mess up boundaries
+    biotBC!(u,U,ω,tar,ftar;fmm=false) # fix domain velocities
+    @test maximum(abs,(u.-u₀)[2:end,2:end-1,1])<0.003
+    @test maximum(abs,(u.-u₀)[2:end-1,2:end,2])<0.003
+    pflowBC!(u) # fix ghosts
+    @test maximum(abs,(u.-u₀)[3:end-1,1,1])<0.0044 # tangential
+    @test maximum(abs,(u.-u₀)[1,3:end-1,2])<0.003 # tangential
+    @test maximum(abs,(u.-u₀)[1,3:end-2,1])<0.003 # normal
+    @test maximum(abs,(u.-u₀)[3:end-2,1,2])<0.003 # normal
 end
 
 @testset "flow.jl" begin

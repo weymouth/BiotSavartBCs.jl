@@ -1,6 +1,7 @@
 # inverse distance weighted source
 using StaticArrays
 @inline weighted(r::SVector{3,Float32},S::CartesianIndex{3},i,ω) = permute((j,k)->@inbounds(ω[S,j]*r[k]),i)/√(r'*r)^3/π/4
+@inline weighted(r::SVector{2,Float32},S::CartesianIndex{2},i,ω) = (i-i%2-1)*@inbounds(ω[S,1]*r[i%2+1])/(r'*r)/π/2
 
 # Sum over sources at one interaction level
 Base.@propagate_inbounds @fastmath function interaction(ω,Ti::CartesianIndex{Np1},l,depth) where Np1
@@ -38,4 +39,4 @@ function fmmBC_r!(r,u,U,ω,tar,ftar)
     project!(ω,tar)
     @vecloop velo_resid!(r,u,U,ω,Ii,fmm) over Ii ∈ tar[1]
 end
-@inline fmm(ml,Ii) = ml[1][Ii]+0.25f0project(Ii,ml[2])
+@inline fmm(ml,Ii) = ml[1][Ii]+project(Ii,ml[2])
