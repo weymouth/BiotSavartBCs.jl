@@ -135,17 +135,37 @@ using BiotSavartBCs: slice
     @test all(@. abs(sum(ω))<12e-5) # zero-sum at every level
 
     BC!(u,U) # mess up boundaries
+    biotBC!(u,U,ω,tar,ftar;fmm=true) # fix domain velocities
+    @test maximum(abs,(u.-u₀)[2:end,2:end-1,1])<0.028
+    @test maximum(abs,(u.-u₀)[2:end-1,2:end,2])<0.025
+    
+    BC!(u,U) # mess up boundaries
     biotBC!(u,U,ω,tar,ftar;fmm=false) # fix domain velocities
-    @test maximum(abs,(u.-u₀)[2:end,2:end-1,1])<0.003
+    @test maximum(abs,(u.-u₀)[2:end,2:end-1,1])<0.0063 # No target interpolation error
     @test maximum(abs,(u.-u₀)[2:end-1,2:end,2])<0.003
     pflowBC!(u) # fix ghosts
     @test maximum(abs,(u.-u₀)[3:end-1,1,1])<0.0044 # tangential
     @test maximum(abs,(u.-u₀)[1,3:end-1,2])<0.003 # tangential
-    @test maximum(abs,(u.-u₀)[1,3:end-2,1])<0.003 # normal
+    @test maximum(abs,(u.-u₀)[1,3:end-2,1])<0.0064 # normal
     @test maximum(abs,(u.-u₀)[3:end-2,1,2])<0.003 # normal
 end
 
 @testset "flow.jl" begin
+    circ(D,U=1,m=2D) = Simulation((m,m), (U,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=U*D/1e4)
+    for fmm in (true,false)
+        sim = circ(256); ω = MLArray(sim.flow.f); x₀ = copy(sim.flow.p); tar = collect_targets(ω); ftar = flatten_targets(tar);
+        biot_mom_step!(sim.flow,sim.pois,ω,x₀,tar,ftar;fmm)
+        u_max = maximum(sim.flow.u[:,:,1])
+        v_max = maximum(sim.flow.u[:,:,2])
+        u_inf = minimum(sim.flow.u[1,:,1])
+        @show fmm,u_max,v_max,u_inf
+        @test abs(u_max-2)<0.02 # circle u_max = 2
+        @test abs(v_max-1)<0.02 # circle v_max = 1
+        @test abs(u_inf-0.75)<0.02 # upstream slow down
+        @time biot_mom_step!(sim.flow,sim.pois,ω,x₀,tar,ftar;fmm)
+        @show sim.pois.n
+    end
+
     sphere(D,m=3D÷2) = Simulation((m,m,m), (1,0,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=D/1e4)
     for fmm in (true,false)
         sim = sphere(128); ω = MLArray(sim.flow.f); x₀ = copy(sim.flow.p); tar = collect_targets(ω); ftar = flatten_targets(tar);

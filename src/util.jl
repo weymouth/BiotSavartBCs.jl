@@ -41,7 +41,7 @@ function MLArray(u)
     zeros_like_u(N,n) = (y = similar(u,N...,n); fill!(y,0); y)
     return (u,map(N->zeros_like_u(N,n),levels)...)
 end
-close(T::CartesianIndex{2}) = T-7oneunit(T):T+7oneunit(T) # match v1 of paper
+close(T::CartesianIndex{2}) = T-4oneunit(T):T+4oneunit(T)
 close(T::CartesianIndex{3}) = T-2oneunit(T):T+2oneunit(T)
 close(T,R) = inR(close(T),R)
 remaining(T,R) = up(close(down(T),down(R)))
