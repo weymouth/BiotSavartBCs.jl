@@ -17,7 +17,7 @@ end
 
 # project using biot BCs
 import WaterLily: Vcycle!,smooth!
-function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,x₀,tar,ftar,U;fmm=true,w=1,log=false,tol=1e-5,itmx=8) where n
+function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,x₀,tar,ftar,U;fmm=true,w=1,log=false,tol=1e-4,itmx=32) where n
     dt = w*a.Δt[end]; a.p .*= dt  # Scale p *= w*Δt
     apply_grad_p!(a.u,ω,a.p,a.μ₀) # Apply u-=μ₀∇p & ω=∇×u
     x₀ .= a.p; fill!(a.p,0)       # x₀ holds p solution
@@ -31,9 +31,10 @@ function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,x₀,tar,ftar,U;fmm
     nᵖ,nᵇ,r₂ = 0,0,L₂(b)
     while nᵖ<itmx
         rtol = max(tol,0.1r₂)
-        while r₂>rtol && nᵖ<itmx
+        while nᵖ<itmx
             Vcycle!(ml_b); smooth!(b)
             r₂ = L₂(b); nᵖ+=1
+            r₂<rtol && break
         end
         apply_grad_p!(a.u,ω,a.p,a.μ₀)   # Update u,ω
         x₀ .+= a.p; fill!(a.p,0)        # Update solution
