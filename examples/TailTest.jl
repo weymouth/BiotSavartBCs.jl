@@ -23,7 +23,7 @@ function udTriangle(p, a, b, c)
         (nor ⋅ pa)^2/dot2(nor) )
 end
 
-function simple_tail(L=64;U=1,Re=200,St=0.6,α₀=π/18,mem=Array,T=Float32)
+function simple_tail(L=64;U=1,Re=200,St=0.6,α₀=π/18,mem=Array,T=Float32,use_biotsavart=false)
     # triangle tail SDF
     S = L/√3 # side half-length
     tail(x,t)=udTriangle(x,SA[0,0,0],SA[L,0,S],SA[L,0,-S])-(1+√3)/2
@@ -37,6 +37,7 @@ function simple_tail(L=64;U=1,Re=200,St=0.6,α₀=π/18,mem=Array,T=Float32)
     end 
 
     # make simulation
+    use_biotsavart && return BiotSimulation((4L,3L,2L),(U,0,0),L;ν=U*L/Re,mem,T,body=AutoBody(tail,flap))
     Simulation((4L,3L,2L),(U,0,0),L;ν=U*L/Re,mem,T,body=AutoBody(tail,flap))
 end
 
@@ -56,18 +57,16 @@ function ω!(d,sim)
     copyto!(d,a[inside(a)]) # copy to CPU
 end
 
-update(sim,t,ω_ml; biotsavart = false, geomonly = false) = while sim_time(sim) < t
-    measure!(sim)
+update(sim,t; geomonly = false) = while sim_time(sim) < t
     geomonly && (push!(sim.flow.Δt,sim.flow.Δt[end]); continue)
-    biotsavart ? biot_mom_step!(sim.flow,sim.pois,ω_ml) : mom_step!(sim.flow,sim.pois)
+    sim_step!(sim;remeasure=true)
 end
 
 L,St,biotsavart=32,0.6,true
 begin
     # Define geometry and motion on GPU
-    sim = simple_tail(L,St=St,mem=Array)
-    ω_ml = ntuple(i->MLArray(sim.flow.σ),3)
-    update(sim,0.001,ω_ml;biotsavart)
+    sim = simple_tail(L,St=St,mem=Array,use_biotsavart=biotsavart)
+    update(sim,0.001)
 
     # Create CPU buffer arrays for geometry flow viz 
     a = sim.flow.σ
@@ -82,7 +81,7 @@ begin
     volume!(ω, algorithm=:mip, colormap=:algae, colorrange=(5,50))
     fig
 end
-update(sim,1/√3/St,ω_ml)
+update(sim,1/√3/St)
 # Loop in time
 # GLMakie.record(fig,"fish.mp4",1:50) do frame
 steps,periods = 80,1
@@ -90,7 +89,7 @@ GLMakie.record(fig,"tail_true.mp4",1:(steps*periods)) do frame
 # foreach(1:(steps*periods)) do frame
     stop = sim_time(sim)+(2/√3)/(St*steps)
     @show frame
-    update(sim,stop,ω_ml;biotsavart)
+    update(sim,stop)
     geom[] = geom!(d,sim)
     ω[] = ω!(d,sim);
 end
@@ -104,8 +103,7 @@ function ave_slice!(sim,t,ω_ml,d; biotsavart = false)
     # accumulate u
     T₀ = length(sim.flow.Δt)
     while sim_time(sim) < t
-        measure!(sim)
-        biotsavart ? biot_mom_step!(sim.flow,sim.pois,ω_ml) : mom_step!(sim.flow,sim.pois)
+        sim_step!(sim;remeasure=true)
         copyto!(d,sim.flow.u[inside(sim.flow.p),1]) # copy to CPU
         u_bar .+= d[:,:,z_slice] # sum
         @show sim_time(sim)
@@ -124,8 +122,7 @@ savefig("u_bar_true.png")
 1
 
 # # Define geometry and motion on GPU
-# sim = simple_tail(32,mem=Array);
-# ω_ml = ntuple(i->MLArray(sim.flow.σ),3);
+# sim = simple_tail(32,mem=CuArray,use_biotsavart=true);
    
 # # make a writer with some attributes, need to output to CPU array to save file (|> Array)
 # vort(a::Simulation) = (@WaterLily.loop sim.flow.f[I,:] .= WaterLily.ω(I,sim.flow.u) over I in inside(sim.flow.p);
@@ -144,11 +141,9 @@ savefig("u_bar_true.png")
 # writer = vtkWriter("tail_biotsavart"; attrib=custom_attrib)
 
 # # Loop in time
-# biotsvart = true
 # for t in range(0,10;step=0.02)#1:6
 #     while sim_time(sim)<t #sim_step!(sim,t)
-#         measure!(sim); 
-#         biotsvart ? biot_mom_step!(sim.flow,sim.pois,ω_ml) : mom_step!(sim.flow,sim.pois)
+#         sim_step!(sim;remeasure=true)
 #     end
 #     @show t
 #     write!(writer,sim);

@@ -1,45 +1,37 @@
 using WaterLily,StaticArrays,CUDA,BiotSavartBCs
+using JLD2,Plots
 
-function make_sim_acc(; N=128, R=32, a=0.5, U=1, Re=1e3, mem=Array)
+function make_sim_acc(; N=128, R=32, a=0.5, U=1, Re=1e3, mem=Array, use_biotsavart=false)
     disk(x,t) = (y=x-SA[-R,0,0].-N/2; r=√(y[2]^2+y[3]^2); √(y[1]^2+(r-min(r,R))^2)-1.5)
-    Ut(i,t::T) where T = i==1 ? convert(T,a*t/R+(1.0+tanh(31.4*(t/R-1.0/a)))/2.0*(1-a*t/R)) : zero(T) # velocity BC
-    Simulation((N,N,N), Ut, R; U,ν=U*R/Re, body=AutoBody(disk), mem)
+    Ut(i,t::T) where T = i==1 ? convert(T,a*t/R) : zero(T) # velocity BC
+    body = AutoBody(disk)
+    use_biotsavart && return BiotSimulation((N,N,N), Ut, R; U,ν=U*R/Re, body, mem)
+    Simulation((N,N,N), Ut, R; U,ν=U*R/Re, body, mem)
 end
 
-include("TwoD_plots.jl")
-using JLD2
-CIs = CartesianIndices
-N = 2^6; R = N/3
-domain = (2:N+1,2:N+1,N÷2+1)
-for use_biotsavart in [true]
-    sim = make_sim_acc(mem=Array;N,R);
-    ω = use_biotsavart ? ntuple(i->MLArray(sim.flow.σ),3) : nothing
-    forces = []; k=0; σ = []; p = [];
-    @show sizeof(sim)
+# size of the domain
+N = 2^7; R = N/3
+for use_biotsavart in [false,true]
+    sim = make_sim_acc(mem=CUDA.CuArray;N,R,use_biotsavart);
+    forces = []; σ = []; p = [];
     for t in 1:20
-        @time while sim_time(sim)<t #sim_step!(sim,t)
-            measure!(sim,sum(sim.flow.Δt)) # update the body compute at timeNext
-            use_biotsavart ? biot_mom_step!(sim.flow,sim.pois,ω) : WaterLily.mom_step!(sim.flow,sim.pois)
+        @time while sim_time(sim)<t
+            sim_step!(sim;remeasure=false)
             f = 2WaterLily.pressure_force(sim)/R^2
             push!(forces,[sim_time(sim),f[1]])
         end
-        WaterLily.@loop sim.flow.σ[I] = WaterLily.curl(3,I,sim.flow.u)*sim.L/sim.U over I ∈ CIs(domain)
-        push!(p,sim.flow.p[CIs(domain[1:2]),domain[3]]|>Array)
-        push!(σ,sim.flow.σ[CIs(domain[1:2]),domain[3]]|>Array)
+        @inside sim.flow.σ[I] = WaterLily.curl(3,I,sim.flow.u)*sim.L/sim.U
+        push!(p,sim.flow.p[inside(sim.flow.p)]|>Array)
+        push!(σ,sim.flow.σ[inside(sim.flow.p)]|>Array)
     end
-    jldopen("disk_$(N)D_$(R)R_$(use_biotsavart).jld2", "w") do file
-        mygroup = JLD2.Group(file,"case")
-        mygroup["forces"] = forces
-        mygroup["σ"] = σ
-        mygroup["p"] = p
-    end
+    jldsave("disk_$(N)D_$(R)R_$(use_biotsavart).jld2"; f=forces, σ=σ, p=p)
 end
-for use_biotsavart in [true]
+# make the figures
+for use_biotsavart in [false,true]
     BCs = use_biotsavart ? "biot" : "reflect"
-    jldopen("disk_$(N)D_$(R)R_$(use_biotsavart).jld2","r") do file
+    jldopen("disk_$(N)D_$(R)R_$(use_biotsavart).jld2") do file
         for t ∈ 1:20
-            p = file["case"]["p"][t]
-            σ = file["case"]["σ"][t]
+            p = file["p"][t]; σ = file["σ"][t]
             flood(p,clims=(-2,2),cfill=:viridis)
             savefig("Disk_"*BCs*"_press_$(t).png")
             flood(σ,clims=(-20,20))
