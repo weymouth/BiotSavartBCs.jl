@@ -151,10 +151,10 @@ using BiotSavartBCs: slice
 end
 
 @testset "flow.jl" begin
-    circ(D,U=1,m=2D) = Simulation((m,m), (U,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=U*D/1e4)
+    circ(D,U=1,m=2D) = BiotSimulation((m,m), (U,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=U*D/1e4)
     for fmm in (true,false)
-        sim = circ(256); ω = MLArray(sim.flow.f); x₀ = copy(sim.flow.p); tar = collect_targets(ω); ftar = flatten_targets(tar);
-        biot_mom_step!(sim.flow,sim.pois,ω,x₀,tar,ftar;fmm)
+        sim = circ(256)
+        sim_step!(sim;remeasure=false)
         u_max = maximum(sim.flow.u[:,:,1])
         v_max = maximum(sim.flow.u[:,:,2])
         u_inf = minimum(sim.flow.u[1,:,1])
@@ -162,14 +162,14 @@ end
         @test abs(u_max-2)<0.02 # circle u_max = 2
         @test abs(v_max-1)<0.02 # circle v_max = 1
         @test abs(u_inf-0.75)<0.02 # upstream slow down
-        @time biot_mom_step!(sim.flow,sim.pois,ω,x₀,tar,ftar;fmm)
+        @time sim_step!(sim;remeasure=false)
         @show sim.pois.n
     end
 
-    sphere(D,m=3D÷2) = Simulation((m,m,m), (1,0,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=D/1e4)
+    sphere(D,m=3D÷2) = BiotSimulation((m,m,m), (1,0,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=D/1e4)
     for fmm in (true,false)
-        sim = sphere(128); ω = MLArray(sim.flow.f); x₀ = copy(sim.flow.p); tar = collect_targets(ω); ftar = flatten_targets(tar);
-        biot_mom_step!(sim.flow,sim.pois,ω,x₀,tar,ftar;fmm)
+        sim = sphere(128)
+        sim_step!(sim;remeasure=false)
         u_max = maximum(sim.flow.u[:,:,:,1])
         v_max = maximum(sim.flow.u[:,:,:,2:3])
         u_inf = minimum(sim.flow.u[2,:,:,1])
@@ -177,7 +177,7 @@ end
         @test abs(u_max-1.5)<0.012    # u_max = 3/2
         @test abs(v_max-0.75)<0.035   # v,w_max = 3/4
         @test abs(u_inf-19/27)<0.033  # upstream slow down
-        @time biot_mom_step!(sim.flow,sim.pois,ω,x₀,tar,ftar;fmm)
+        @time sim_step!(sim;remeasure=false)
         @show sim.pois.n
     end
 end
