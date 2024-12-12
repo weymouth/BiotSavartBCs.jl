@@ -1,13 +1,15 @@
 # momentum step using bio_project
-import WaterLily: scale_u!,conv_diff!,BDIM!,CFL,accelerate!,time,BCTuple
+import WaterLily: scale_u!,conv_diff!,BDIM!,CFL,accelerate!,time,BCTuple,@log
 function biot_mom_step!(a::Flow{N},b,ω...;fmm=true) where N
     a.u⁰ .= a.u; scale_u!(a,0); U = BCTuple(a.U,a.Δt,N)
     # predictor u → u'
+    @log "p"
     conv_diff!(a.f,a.u⁰,a.σ,ν=a.ν);
     accelerate!(a.f,@view(a.Δt[1:end-1]),a.g,a.U)
     BDIM!(a);
     biot_project!(a,b,ω...,U;fmm) # new
     # corrector u → u¹
+    @log "c"
     conv_diff!(a.f,a.u,a.σ,ν=a.ν)
     accelerate!(a.f,a.Δt,a.g,a.U)
     BDIM!(a); scale_u!(a,0.5)
@@ -17,7 +19,7 @@ end
 
 # project using biot BCs
 import WaterLily: Vcycle!,smooth!
-function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,x₀,tar,ftar,U;fmm=true,w=1,log=false,tol=1e-4,itmx=32) where n
+function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,x₀,tar,ftar,U;fmm=true,w=1,tol=1e-4,itmx=32) where n
     dt = w*a.Δt[end]; a.p .*= dt  # Scale p *= w*Δt
     apply_grad_p!(a.u,ω,a.p,a.μ₀) # Apply u-=μ₀∇p & ω=∇×u
     x₀ .= a.p; fill!(a.p,0)       # x₀ holds p solution
@@ -29,6 +31,7 @@ function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,x₀,tar,ftar,U;fmm
     fix_resid!(b.r,a.u,tar[1]) # only fix on the boundaries
 
     nᵖ,nᵇ,r₂ = 0,0,L₂(b)
+    @log ", $nᵖ, $r₂, $(WaterLily.L∞(b)), $nᵇ\n"
     while nᵖ<itmx
         rtol = max(tol,0.1r₂)
         while nᵖ<itmx
@@ -40,7 +43,7 @@ function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,x₀,tar,ftar,U;fmm
         x₀ .+= a.p; fill!(a.p,0)        # Update solution
         biotBC_r!(b.r,a.u,U,ω,tar,ftar;fmm) # Update BC+residual
         r₂ = L₂(b); nᵇ+=1
-        log && @show nᵖ,nᵇ,r₂
+        @log ", $nᵖ, $(WaterLily.L∞(b)), $r₂, $nᵇ\n"
         r₂<tol && break
     end
     push!(ml_b.n,nᵖ)
