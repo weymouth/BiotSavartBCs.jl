@@ -31,7 +31,7 @@ function biot_project!(a::Flow{n},ml_b::MultiLevelPoisson,ω,x₀,tar,ftar,U;fmm
     fix_resid!(b.r,a.u,tar[1]) # only fix on the boundaries
 
     nᵖ,nᵇ,r₂ = 0,0,L₂(b)
-    @log ", $nᵖ, $r₂, $(WaterLily.L∞(b)), $nᵇ\n"
+    @log ", $nᵖ, $(WaterLily.L∞(b)), $r₂, $nᵇ\n"
     while nᵖ<itmx
         rtol = max(tol,0.1r₂)
         while nᵖ<itmx
