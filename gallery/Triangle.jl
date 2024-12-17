@@ -30,7 +30,7 @@ function make_sim_acc(; N=128, R=32, a0=0.5, U=1, Re=1e3, mem=Array)
     map(x,t) = x-SA[N/2-R,N/2-R/4,N/2]
     
     # moving reference frame
-    Ut(i,t::T) where T = i==1 ? convert(T,a0*t/R) : zero(T) # velocity BC
+    Ut(i,t::T) where T = i==1 ? convert(T,min(a0*t/R,U)) : zero(T) # velocity BC
     BiotSimulation((N,N,N), Ut, R; U,ν=U*R/Re, body=AutoBody(triangle,map), mem)
 end
 # make a writer with some attributes, need to output to CPU array to save file (|> Array)
