@@ -11,7 +11,7 @@ end
 D,n,m = (64,7,7)
 sim = circ(D,n,m;mem=CUDA.CuArray)
 u = Float32[]; Is = CartesianIndex(D+m*D÷2,m*D÷2); forces = []
-@time anim = @animate for tᵢ in range(0.,100.,step=0.1)
+stats = @timed anim = @animate for tᵢ in range(0.,100.,step=0.1)
     while sim_time(sim) < tᵢ
         sim_step!(sim;remeasure=false)
         pres,visc = WaterLily.pressure_force(sim),WaterLily.viscous_force(sim)
@@ -25,4 +25,5 @@ u = Float32[]; Is = CartesianIndex(D+m*D÷2,m*D÷2); forces = []
 end
 gif(anim,"rotated_circle_$(n)Dx$(m)D_omega_true.gif")
 @inside sim.flow.σ[I] = WaterLily.curl(3,I,sim.flow.u)*sim.L/sim.U
-jldsave("rotated_circle_$(n)Dx$(m)D.jld2"; θ=(n,m,true), u=u, p=Array(sim.flow.p), ω=Array(sim.flow.σ))
+jldsave("rotated_circle_$(n)Dx$(m)D.jld2"; θ=(n,m,true), u=u, p=Array(sim.flow.p), 
+        f=forces, ω=Array(sim.flow.σ), time=stats.time)
