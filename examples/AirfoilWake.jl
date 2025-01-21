@@ -12,12 +12,13 @@ end
 params = [(false,0.2,30,20),(false,0.3,30,20),(false,0.4,30,20),(false,0.5,30,20),(false,0.6,30,20),
           (true,0.2,6,4),(true,0.3,6,4),(true,0.4,6,4),(true,0.5,6,4),(true,0.6,6,4),
           (true,0.5,12,8),(true,0.6,12,8)]
+
 # run all the cases
 for (biot,St,n,m) in params
-    sim = ellipse(64,n,m;St,mem=CUDA.CuArray,use_biotsavart=biot)
+    sim = ellipse(64,n,m;St,T=Float64,mem=CUDA.CuArray,use_biotsavart=biot)
     R = biot ? inside(sim.flow.p) : CartesianIndices((290:1057,386:897)) # show the domain in 12L, 8L
     forces = []
-    @time anim = @animate for tᵢ in range(0.,100.,step=0.1)
+    anim = @animate for tᵢ in range(0.,100.,step=0.1)
         while sim_time(sim) < tᵢ
             sim_step!(sim;remeasure=true)
             pres,visc = WaterLily.pressure_force(sim),WaterLily.viscous_force(sim)
@@ -35,26 +36,28 @@ end
 # make the figures for the paper
 mean_CL = []; mean_CL2=[]
 for St in [0.2,0.3,0.4,0.5,0.6]
-    (n,m) = biot ? (6,4) : (30,20) # select domain size
     plt = plot(dpi=300)
     for biot ∈ [true false]
+        (n,m) = biot ? (6,4) : (30,20) # select domain size
         jldopen("airfoil_wake_$(n)L_$(m)L_St$(St)_$(biot).jld2") do file
             BC = ifelse(biot,"Biot-Savart","Reflection")
             ls = ifelse(biot,:solid,:dash)
             forces = reduce(vcat,file["f"]'); L=64
-            plot!(plt,forces[:,1]*St,sum(forces[:,[3,5]];dims=2)./L,label="Airfoil St:$St "*BC)
-            L_mean = sum(forces[end-20000:end,[3,5]])./20000L
+            plot!(plt,forces[:,1]*St,sum(forces[:,[3,5]];dims=2)./L,label="Airfoil St:$St "*BC;ls)
+            idx = floor(forces[end,1]*St/2).<forces[:,1]*St.<floor(forces[end,1]*St) # only the second half
+            L_mean = sum(forces[idx,[3,5]])./(length(idx)*L)
             push!(mean_CL,L_mean)
             plot!([0,maximum(forces[:,1]*St)],[L_mean,L_mean],color=:black,label="Mean force "*BC;ls)
         end
     end
     if St in [0.5,0.6]
         jldopen("airfoil_wake_12L_8L_St$(St)_true.jld2") do file
-            forces = reduce(vcat,file["force"]'); L=64
-            plot!(plt,forces[:,1]*St,sum(forces[:,[3,5]];dims=2)./L,label="Airfoil St:$St Biot-Savart 2x";ls=:solid)
-            L_mean = sum(forces[end-20000:end,[3,5]])./20000L
+            forces = reduce(vcat,file["f"]'); L=64
+            plot!(plt,forces[:,1]*St,sum(forces[:,[3,5]];dims=2)./L,label="Airfoil St:$St Biot-Savart 2x";ls=:dot)
+            idx = floor(forces[end,1]*St/2).<forces[:,1]*St.<floor(forces[end,1]*St) # only the second half
+            L_mean = sum(forces[idx,[3,5]])./(length(idx)*L)
             push!(mean_CL2,L_mean)
-            plot!([0,maximum(forces[:,1]*St)],[L_mean,L_mean],color=:black,label="Mean force Biot-Savart 2x";ls=:solid)
+            plot!([0,maximum(forces[:,1]*St)],[L_mean,L_mean],color=:black,label="Mean force Biot-Savart 2x";ls=:dot)
         end
     end
     xlims!(0,100*St);ylims!(-25,25);
@@ -66,13 +69,13 @@ end
 let
     St = [0.2,0.3,0.4,0.5,0.6]
     plt = plot(dpi=300)
-    plot!(plt,St,mean_CL[2:2:end],label="Cₗ reflection";marker=:x,ls=:dash)
-    plot!(plt,St,mean_CL[1:2:end],label="Cₗ Biot-Savart";marker=:o,ls=:solid)
-    plot!(plt,[0.5,0.6],mean_CL2,label="Cₗ Biot-Savart 2x";marker=:s,ls=:solid)
+    plot!(plt,St,abs.(mean_CL[2:2:end]),label="Cₗ reflection";marker=:x,ls=:dash)
+    plot!(plt,St,abs.(mean_CL[1:2:end]),label="Cₗ Biot-Savart";marker=:o,ls=:solid)
+    plot!(plt,[0.5,0.6],abs.(mean_CL2),label="Cₗ Biot-Savart 2x";marker=:s,ls=:solid)
     xlims!(0.,0.8); ylims!(-0.5,2); plot!(legend=:topleft)
     xlabel!("Strouhal number"); ylabel!("Mean Lift coefficient")
     savefig("CL_mean_deflected_wake.png")
-    end
+end
 # Poincaré map
 let
     using DSP
@@ -92,6 +95,7 @@ let
         end
     end
     # the same for 2x Biot-Savart
+    biot = true; St=0.6
     jldopen("airfoil_wake_12L_8L_St0.6_$(biot).jld2") do file
         St=0.6; L=64;
         BC = "Biot-Savart"; ls = :solid

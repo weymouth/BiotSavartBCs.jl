@@ -3,7 +3,7 @@ using JLD2,Plots
 
 norm(x) = √sum(abs2,x)
 function circ(D,n,m;Re=200,U=(1/√2,1/√2),mem=Array) 
-    body = AutoBody((x,t)->√sum(abs2,x.-2.2*D)-D÷2)
+    body = AutoBody((x,t)->√sum(abs2,x.-2.2*D.-SA[1,0])-D÷2)
     BiotSimulation((n*D,m*D), U, D; body, ν=norm(U)*D/Re,mem)
 end
 

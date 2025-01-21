@@ -1,4 +1,4 @@
-using WaterLily,BiotSavartBCs
+using WaterLily,BiotSavartBCs,StaticArrays
 
 hill_vortex(N;D=3N/4) = function uλ(i,xyz)
     q = xyz .- (N-2)/2; x,y,z = q; r = √(q'*q); θ = acos(z/r); ϕ = atan(y,x)
@@ -11,58 +11,73 @@ end
 function fill_hill(N,D;T=Float64,mem=Array)
     u = zeros(T,(N,N,N,3))|>mem; apply!(hill_vortex(N;D),u)
     p = zeros(T,(N,N,N))|>mem;
-    ω = ntuple(i->MLArray(p),3); fill_ω!(ω,u)
-    return p,ω
+    f = zeros(T,(N,N,N,3))|>mem # ML points to this
+    ω = MLArray(f); fill_ω!(ω,u)
+    return p,u,ω
 end
 
 # Test serial vs multi-threaded vs GPU
 using CUDA,BenchmarkTools
 CUDA.allowscalar(false)
 pow = 6; N,D = 2^pow+2,2^(pow-3)
-p,ω = fill_hill(N,D,T=Float32);
-pC,ωC = fill_hill(N,D,T=Float32,mem=CuArray);
+p,u,ω = fill_hill(N,D,T=Float32);
+pC,uC,ωC = fill_hill(N,D,T=Float32,mem=CuArray);
 
-R = inside(p); p[R[1]] = u_ω(1,R[1],ω)
-@btime $p[$R] .= u_ω.(Ref(1),$R,Ref($ω)); # 1600ms 0KiB
-@btime @inside $p[I] = u_ω(1,I,$ω); # 220ms 24KiB
-@btime CUDA.@sync @inside $pC[I] = u_ω(1,I,$ωC); # 76ms 12KiB (Julia 1.10: 41ms 8KiB!)
+# test scaling
+U = SA[0.,0.,1.]
+tar = collect_targets(ω); ftar = flatten_targets(tar)
+tarC = CUDA.CuArray.(collect_targets(ω)); ftarC = flatten_targets(tarC)
+@btime biotBC!($u,$U,$ω,$tar,$ftar;fmm=false); # 2.501ms 3.77KiB
+@btime biotBC!($u,$U,$ω,$tar,$ftar;fmm=true); # 0.671ms 3.84KiB
+@btime CUDA.@sync biotBC!($uC,$U,$ωC,$tarC,$ftarC;fmm=false); # 1.102ms 4.84KiB
+@btime CUDA.@sync biotBC!($uC,$U,$ωC,$tarC,$ftarC;fmm=true); # 0.319ms 15.61KiB 
 
-# Test time scaling with dist
-m_u_ω(i,I,ω,dist) = BiotSavartBCs._u_ω(loc(0,I,Float64),dist,lastindex(ω[1]),inside(ω[1][end]),
-        @inline (r,I,l=1) -> WaterLily.permute((j,k)->@inbounds(ω[j][l][I]*r[k]),i)/√(r'*r+eps(Float64))^3)/(4π)
-
-pow = 8; N,D = 2^pow+2,2^(pow-3)
-p,ω = fill_hill(N,D);
+# timmings
 btime(b) = minimum(b).time
-duration = [btime(@benchmark m_u_ω(1,$R[1],$ω,$dist)) for dist ∈ 2 .^ collect(0:pow-1)]
+function btime_biotBC!(u,U,ω,targs,ftargs,dist;fmm=false)
+    # we have to owerwrite the function before we call btime
+    @eval BiotSavartBCs.close(T::CartesianIndex{3}) = T-$dist*oneunit(T):T+$dist*oneunit(T)
+    # we do not want the compilation of the above function in the time
+    btime(@benchmark CUDA.@sync biotBC!($u,$U,$ω,$targs,$ftargs;fmm=$fmm))
+end
 
-using Plots
-plot(2.0.^collect(0:7),duration[end]./duration,xlabel="S",ylabel="speedup",
-     legend=false,yaxis=:log,xaxis=:log)
+# run some benchmark
+duration_tree =  [btime_biotBC!(u,U,ω,tar,ftar,dist;fmm=false) for dist ∈ 2 .^ collect(0:pow-1)]
+duration_fmm =   [btime_biotBC!(u,U,ω,tar,ftar,dist;fmm=true) for dist ∈ 2 .^ collect(0:pow-1)]
+duration_treeC = [btime_biotBC!(uC,U,ωC,tarC,ftarC,dist;fmm=false) for dist ∈ 2 .^ collect(0:pow-1)]
+duration_fmmC =  [btime_biotBC!(uC,U,ωC,tarC,ftarC,dist;fmm=true) for dist ∈ 2 .^ collect(0:pow-1)]
+
+using Plots,JLD2
+plot(2.0.^collect(0:5),duration_fmmC[end]./duration_tree,xlabel="S",ylabel="speedup",
+     label="Tree - CPU",lw=2,c=1,yaxis=:log,xaxis=:log, xlims=(1,32),ylims=(0.1,10000))
+plot!(2.0.^collect(0:5),duration_fmmC[end]./duration_fmm,lw=2,c=2,label="FMM - CPU")
+plot!(2.0.^collect(0:5),duration_fmmC[end]./duration_treeC,lw=2,c=1,ls=:dashdot,label="Tree - GPU")
+plot!(2.0.^collect(0:5),duration_fmmC[end]./duration_fmmC,lw=2,c=2,ls=:dashdot,label="FMM - GPU")
+jldsave("Hill_speedup.jld2";times=[duration_tree,duration_fmm,duration_treeC,duration_fmmC])
 savefig("Hill_speedup_dists.png")
 
 # Check error scaling with dist
-@inline sdf(I) = √sum(abs2,loc(0,I) .- (N-2)/2) - D/2; @inline J(I) = I+CartesianIndex(0,N÷2,0)
-function hill_error(ω,N,D,U=(0,0,1);dist=4)
-    uλ = hill_vortex(N;D)
-    @inline ϵ(i,I,ω) = uλ(i,loc(0,I))-U[i]-m_u_ω(i,I,ω,dist)
-    p = zeros(Float64,(N,1,N))
-    WaterLily.@loop (p[I] = sdf(J(I))>1 ? √(ϵ(1,J(I),ω)^2+ϵ(2,J(I),ω)^2+ϵ(3,J(I),ω)^2) : 0) over I ∈ CartesianIndices(p)
+@inline d(I) = √sum(abs2,loc(0,I) .- (N-2)/2) - D/2; @inline J(I) = I+CartesianIndex(0,N÷2,0)
+function hill_error(u,ω,U=(0,0,1);dist=4)
+    ue = copy(u); u .= 0 # make sure it's empty
+    @eval BiotSavartBCs.close(T::CartesianIndex{3}) = T-$dist*oneunit(T):T+$dist*oneunit(T)
+    # targets are the full domain
+    R = map(ωᵢ->vcat(CartesianIndices(ωᵢ)...),ω); fR = flatten_targets(R)
+    biotBC!(u,U,ω,R,fR;fmm=false) # can only use tree
+    p = zeros(eltype(ue),(N,1,N))
+    WaterLily.@loop (p[I] = d(J(I))>1 ? √sum(abs2,ue[J(I),:].-u[J(I),:]) : 0) over I ∈ CartesianIndices(p)
     return p
 end
 
-pow = 8; N,D = 2^pow+2,2^(pow-3)
 pmap(p) = log10(p+10^-6.5)
 dis = range(1,N÷2,length=30)
-stats(p,i) = pmap(maximum(p[I] for I in CartesianIndices(p) if dis[i-1]<sdf(J(I))≤dis[i]))
+stats(p,i) = pmap(maximum(p[I] for I in CartesianIndices(p) if dis[i-1]<d(J(I))≤dis[i]))
 
-using JLD2
-# data = load_object("Hill_error_ref.jld2")
-data = []; _,ω = fill_hill(N,D);
-for dist ∈ 2 .^ collect(0:pow-3) # skip the last two lines
-# for dist ∈ 2 .^ collect(0:pow-1) # this takes hours
+data = [];
+for dist ∈ 2 .^ collect(0:pow-1)
     @show dist
-    p = hill_error(ω,N,D;dist)
+    _,u,ω = fill_hill(N,D);
+    p = hill_error(u,ω;dist)
     push!(data,[stats(p,i) for i in 2:lastindex(dis)])
 end
 save_object("Hill_error.jld2",data) # careful not to overwrite
