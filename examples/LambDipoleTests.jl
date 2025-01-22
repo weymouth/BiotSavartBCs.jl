@@ -1,4 +1,4 @@
-using WaterLily,BiotSavartBCs
+using WaterLily,BiotSavartBCs,StaticArrays
 using SpecialFunctions,ForwardDiff,Plots
 function lamb_dipole(N;D=3N/4,U=1)
     β = 2.4394π/D
@@ -13,39 +13,40 @@ function lamb_dipole(N;D=3N/4,U=1)
         -ForwardDiff.derivative(x->ψ(x,y),x)
     end
 end
-
-m_u_ω(i,I,ω,dist) = BiotSavartBCs._u_ω(loc(0,I,Float64),dist,lastindex(ω),inside(ω[end]),
-        @inline (r,I,l=1) -> @inbounds(ω[l][I]*r[i%2+1])/(r'*r+eps(Float64)))*(2i-3)/(2π)
-
-using BenchmarkTools
-btime(b) = minimum(b).time
-function lamb_test(N,D=3N/4,U=(1,0);dist=7)
+function fill_lamb(N,D;T=Float64,mem=Array)
     uλ = lamb_dipole(N;D)
-    u = zeros(Float64,(N,N,2)); apply!(uλ,u)
-    ω = MLArray(u[:,:,1]); fill_ω!(ω,u);
+    u = zeros(T,(N,N,2))|>mem; apply!(uλ,u)
+    f = zeros(T,(N,N,2))|>mem
+    ω = MLArray(f); fill_ω!(ω,u)
+    return u,ω
+end
 
-    time = btime(@benchmark m_u_ω(1,CartesianIndex(2,2),$ω,$dist))
+using BenchmarkTools,CUDA
+function btime_biotBC!(u,U,ω,targs,ftargs,dist;fmm=false)
+    @eval BiotSavartBCs.close(T::CartesianIndex{2}) = T-$dist*oneunit(T):T+$dist*oneunit(T)
+    # we do not want the compilation of the above function in the time
+    btime(@benchmark CUDA.@sync biotBC!($u,$U,$ω,$targs,$ftargs;fmm=$fmm))
+end
 
+btime(b) = minimum(b).time
+function lamb_test(N,D=3N/4,U=(1,0);dist=7,fmm=false)
+    u,ω = fill_lamb(N,D); ue = copy(u)
+    tar = collect_targets(ω); ftar = flatten_targets(tar)
+    time = btime_biotBC!(u,U,ω,tar,ftar,dist;fmm=fmm)
+    
     sdf(I) = √sum(abs2,loc(0,I) .- (N-2)/2) - D/2
-    ϵ(i,I,ω) = uλ(i,loc(0,I))-U[i]-m_u_ω(i,I,ω,dist)
+    @eval BiotSavartBCs.close(T::CartesianIndex{2}) = T-$dist*oneunit(T):T+$dist*oneunit(T)
+    
+    # targets are the full domain
+    R = map(ωᵢ->vcat(CartesianIndices(ωᵢ)...),ω); fR = flatten_targets(R)
+    biotBC!(u,U,ω,R,fR;fmm=fmm)
 
     p = zeros(Float64,(N,N));
-    WaterLily.@loop (p[I] = sdf(I)>1 ? √(ϵ(1,I,ω)^2+ϵ(2,I,ω)^2) : 0) over I ∈ inside(p,buff=0)
+    WaterLily.@loop (p[I] = sdf(I)>1 ? √sum(abs2,ue[I,:].-u[I,:]) : 0) over I ∈ inside(p,buff=0)
     return p,time
 end
-function flood(f::Array;shift=(0.,0.),cfill=:RdBu_11,clims=(),levels=10,kv...)
-    if length(clims)==2
-        @assert clims[1]<clims[2]
-        @. f=min(clims[2],max(clims[1],f))
-    else
-        clims = (minimum(f),maximum(f))
-    end
-    Plots.contourf(axes(f,1).+shift[1],axes(f,2).+shift[2],f',
-        linewidth=0, levels=levels, color=cfill, clims = clims, 
-        aspect_ratio=:equal; kv...)
-end
 
-# Check dependancy on dist = size of kernel
+# Check dependency on dist = size of kernel
 pow = 8; N,D = 2^pow+2,2^(pow-3)
 pmap(p) = log10(p+10^-6.5)
 dis = range(1,N÷2,length=30)
@@ -72,8 +73,27 @@ end
 plt
 savefig("lamb_dipole_error_dists.png")
 
-# duration = [0.667296,1.090,2.389,6.100,16.800,48.600,122.400,230.400]
 plt = plot(xlabel="S",ylabel="speedup")
 plot!(plt,2.0.^collect(0:7),duration[end]./duration,legend=false,
       xaxis=:log,yaxis=:log)
 savefig("lamb_dipole_speedup_dists.png")
+
+# speed up on boundary only
+u,ω = fill_lamb(N,D); U=SA[1,0]
+uC,ωC = fill_lamb(N,D,mem=CuArray);
+tar = collect_targets(ω); ftar = flatten_targets(tar)
+tarC = CUDA.CuArray.(collect_targets(ω)); ftarC = flatten_targets(tarC)
+duration_fmm =   [btime_biotBC!(u,U,ω,tar,ftar,dist;fmm=true) for dist ∈ 2 .^ collect(0:pow-1)]
+duration_tree =  [btime_biotBC!(u,U,ω,tar,ftar,dist;fmm=false) for dist ∈ 2 .^ collect(0:pow-1)]
+duration_fmmC =  [btime_biotBC!(uC,U,ωC,tarC,ftarC,dist;fmm=true) for dist ∈ 2 .^ collect(0:pow-1)]
+duration_treeC = [btime_biotBC!(uC,U,ωC,tarC,ftarC,dist;fmm=false) for dist ∈ 2 .^ collect(0:pow-1)]
+jldsave("lamb_dipole_speedup.jld2";times=[duration_tree,duration_fmm,duration_treeC,duration_fmmC])
+
+using Plots
+plot(2.0.^collect(0:pow-1),duration_fmmC[end]./duration_tree,xlabel="S",ylabel="speedup",
+     label="Tree - CPU",lw=2,c=1,yaxis=:log,xaxis=:log)
+plot!(2.0.^collect(0:pow-1),duration_fmmC[end]./duration_fmm,lw=2,c=2,label="FMM - CPU")
+plot!(2.0.^collect(0:pow-1),duration_fmmC[end]./duration_treeC,lw=2,c=1,ls=:dashdot,label="Tree - GPU")
+plot!(2.0.^collect(0:pow-1),duration_fmmC[end]./duration_fmmC,lw=2,c=2,ls=:dashdot,label="FMM - GPU")
+xlims!(1,2^pow); ylims!(.1,10^3)
+savefig("lamb_dipole_speedup.png")

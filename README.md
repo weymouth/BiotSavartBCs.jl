@@ -49,23 +49,18 @@ using BiotSavartBCs
 
 ### WaterLily.jl Simulations with BiotSavartBCs.jl
 
-Using these new boundary conditions within a `WaterLily` simulation is really straightforward; this requires changing only three (😱) lines of code. The first one is obviously
+Using these new boundary conditions within a `WaterLily` simulation is really straightforward; this requires changing only two (😱) lines of code. The first one is obviously
 
 ```julia
 using WaterLily,BiotSavartBCs
 ```
-The second line that you have to modify creates the Biot-Savart integral operator (using the multi-level approach described in the paper)
+The second line that you have to modify creates the Biot-Savart Simulation structure (which internally takes care of allocating the `tree` or the `fmm` data srtuctures)
 
 ```julia
-ω_ml = MLArray(sim.flow.σ)              #2D flows
-ω_ml = ntuple(i->MLArray(sim.flow.σ),3) #3D flows
+sim = BiotSimulation((4L,2L,2L), Ut, L; body=AutoBody(sdf,map), ν=U*L/Re, T, mem=CUDA.CuArray)
 ```
 
-The last step is to swap the standard `mom_step!` with the new Biot-Savart momentum step
-```julia
-biot_mom_step!(sim.flow,sim.pois,ω_ml) # 2D and 3D flows
-```
-which applies these novel boundary conditions to the flow during the time integration.
+all the methods for flow update, such as `sim_step!(sim, args)` are type-specialized to use `biot_mom_step!()` instead of the classical `mom_step!()`, so the user should really only call `sim_step!(sim; remeasure::Bool)`.
 
 There are numerous examples in the `examples` folder of this repository that show how to use these new boundary conditions in practice.
 
