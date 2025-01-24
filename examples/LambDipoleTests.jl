@@ -56,7 +56,7 @@ stats(p,i) = pmap(maximum(p[I] for I in CartesianIndices(p) if dis[i-1]<d(I)≤d
 data = []; duration = [];
 for dist ∈ 2 .^ collect(0:pow-1)
     @show dist
-    p,time = lamb_test(N,D;dist); push!(duration,time)
+    p,time = lamb_test(4N,4D;dist); push!(duration,time)
     flood(pmap.(p),clims=(-6,-1),border=:none,cfill=:Greens)
     savefig("lamb_dipole_error_dist$(dist).png")
     push!(data,[stats(p,i) for i in 2:lastindex(dis)])
@@ -79,8 +79,8 @@ plot!(plt,2.0.^collect(0:7),duration[end]./duration,legend=false,
 savefig("lamb_dipole_speedup_dists.png")
 
 # speed up on boundary only
-u,ω = fill_lamb(N,D); U=SA[1,0]
-uC,ωC = fill_lamb(N,D,mem=CuArray);
+u,ω = fill_lamb(4N,4D); U=SA[1,0]
+uC,ωC = fill_lamb(4N,4D,mem=CuArray);
 tar = collect_targets(ω); ftar = flatten_targets(tar)
 tarC = CUDA.CuArray.(collect_targets(ω)); ftarC = flatten_targets(tarC)
 duration_fmm =   [btime_biotBC!(u,U,ω,tar,ftar,dist;fmm=true) for dist ∈ 2 .^ collect(0:pow-1)]
