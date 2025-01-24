@@ -11,12 +11,13 @@ end
 # parameters
 params = [(false,0.2,30,20),(false,0.3,30,20),(false,0.4,30,20),(false,0.5,30,20),(false,0.6,30,20),
           (true,0.2,6,4),(true,0.3,6,4),(true,0.4,6,4),(true,0.5,6,4),(true,0.6,6,4),
-          (true,0.5,12,8),(true,0.6,12,8)]
+          (true,0.5,12,8),(true,0.6,12,8),(false,0.6,60,40)]
 
 # run all the cases
 for (biot,St,n,m) in params
     sim = ellipse(64,n,m;St,T=Float64,mem=CUDA.CuArray,use_biotsavart=biot)
     R = biot ? inside(sim.flow.p) : CartesianIndices((290:1057,386:897)) # show the domain in 12L, 8L
+    n==60 && (R=inside(sim.flow.p))
     forces = []
     anim = @animate for tᵢ in range(0.,100.,step=0.1)
         while sim_time(sim) < tᵢ
@@ -37,6 +38,12 @@ end
 mean_CL = []; mean_CL2=[]
 for St in [0.2,0.3,0.4,0.5,0.6]
     plt = plot(dpi=300)
+    plt2 = plot(dpi=300)
+    St==0.6 && jldopen("airfoil_wake_60L_40L_St$(St)_false.jld2") do file
+        forces = reduce(vcat,file["f"]'); L=64
+        plot!(plt,forces[:,1]*St,sum(forces[:,[3,5]];dims=2)./L,label="Airfoil St:$St Reflection 2x";c=:Red)
+        plot!(plt2,forces[:,1]*St,sum(forces[:,[3,5]];dims=2)./L,label="Airfoil St:$St Reflection 2x";c=:Red)
+    end
     for biot ∈ [true false]
         (n,m) = biot ? (6,4) : (30,20) # select domain size
         jldopen("airfoil_wake_$(n)L_$(m)L_St$(St)_$(biot).jld2") do file
@@ -44,12 +51,14 @@ for St in [0.2,0.3,0.4,0.5,0.6]
             ls = ifelse(biot,:solid,:dash)
             forces = reduce(vcat,file["f"]'); L=64
             plot!(plt,forces[:,1]*St,sum(forces[:,[3,5]];dims=2)./L,label="Airfoil St:$St "*BC;ls)
+            (St==0.6 && !biot) && plot!(plt2,forces[:,1]*St,sum(forces[:,[3,5]];dims=2)./L,label="Airfoil St:$St "*BC;ls)
             idx = floor(forces[end,1]*St/2).<forces[:,1]*St.<floor(forces[end,1]*St) # only the second half
             L_mean = sum(forces[idx,[3,5]])./(length(idx)*L)
             push!(mean_CL,L_mean)
-            plot!([0,maximum(forces[:,1]*St)],[L_mean,L_mean],color=:black,label="Mean force "*BC;ls)
+            plot!(plt,[0,maximum(forces[:,1]*St)],[L_mean,L_mean],color=:black,label="Mean force "*BC;ls)
         end
     end
+    ylims!(plt2,-12,12); savefig(plt2,"convergence_domain.png")
     if St in [0.5,0.6]
         jldopen("airfoil_wake_12L_8L_St$(St)_true.jld2") do file
             forces = reduce(vcat,file["f"]'); L=64
@@ -57,7 +66,7 @@ for St in [0.2,0.3,0.4,0.5,0.6]
             idx = floor(forces[end,1]*St/2).<forces[:,1]*St.<floor(forces[end,1]*St) # only the second half
             L_mean = sum(forces[idx,[3,5]])./(length(idx)*L)
             push!(mean_CL2,L_mean)
-            plot!([0,maximum(forces[:,1]*St)],[L_mean,L_mean],color=:black,label="Mean force Biot-Savart 2x";ls=:dot)
+            plot!(plt,[0,maximum(forces[:,1]*St)],[L_mean,L_mean],color=:black,label="Mean force Biot-Savart 2x";ls=:dot)
         end
     end
     xlims!(0,100*St);ylims!(-25,25);
