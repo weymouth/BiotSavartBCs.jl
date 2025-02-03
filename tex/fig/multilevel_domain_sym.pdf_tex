@@ -1,0 +1,76 @@
+%% Creator: Inkscape 1.1.2 (0a00cf5339, 2022-02-04), www.inkscape.org
+%% PDF/EPS/PS + LaTeX output extension by Johan Engelen, 2010
+%% Accompanies image file 'fig/multilevel_domain_sym.pdf' (pdf, eps, ps)
+%%
+%% To include the image in your LaTeX document, write
+%%   \input{<filename>.pdf_tex}
+%%  instead of
+%%   \includegraphics{<filename>.pdf}
+%% To scale the image, write
+%%   \def\svgwidth{<desired width>}
+%%   \input{<filename>.pdf_tex}
+%%  instead of
+%%   \includegraphics[width=<desired width>]{<filename>.pdf}
+%%
+%% Images with a different path to the parent latex file can
+%% be accessed with the `import' package (which may need to be
+%% installed) using
+%%   \usepackage{import}
+%% in the preamble, and then including the image with
+%%   \import{<path to file>}{<filename>.pdf_tex}
+%% Alternatively, one can specify
+%%   \graphicspath{{<path to file>/}}
+%% 
+%% For more information, please see info/svg-inkscape on CTAN:
+%%   http://tug.ctan.org/tex-archive/info/svg-inkscape
+%%
+\begingroup%
+  \makeatletter%
+  \providecommand\color[2][]{%
+    \errmessage{(Inkscape) Color is used for the text in Inkscape, but the package 'color.sty' is not loaded}%
+    \renewcommand\color[2][]{}%
+  }%
+  \providecommand\transparent[1]{%
+    \errmessage{(Inkscape) Transparency is used (non-zero) for the text in Inkscape, but the package 'transparent.sty' is not loaded}%
+    \renewcommand\transparent[1]{}%
+  }%
+  \providecommand\rotatebox[2]{#2}%
+  \newcommand*\fsize{\dimexpr\f@size pt\relax}%
+  \newcommand*\lineheight[1]{\fontsize{\fsize}{#1\fsize}\selectfont}%
+  \ifx\svgwidth\undefined%
+    \setlength{\unitlength}{996.13902175bp}%
+    \ifx\svgscale\undefined%
+      \relax%
+    \else%
+      \setlength{\unitlength}{\unitlength * \real{\svgscale}}%
+    \fi%
+  \else%
+    \setlength{\unitlength}{\svgwidth}%
+  \fi%
+  \global\let\svgwidth\undefined%
+  \global\let\svgscale\undefined%
+  \makeatother%
+  \begin{picture}(1,0.6211096)%
+    \lineheight{1}%
+    \setlength\tabcolsep{0pt}%
+    \put(0,0){\includegraphics[width=\unitlength,page=1]{fig/multilevel_domain_sym.pdf}}%
+    \put(0.57724707,0.09220624){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$\mathcal{D}^{(i)}$}\end{tabular}}}}%
+    \put(0.78222545,0.54727504){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$\Omega$}\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=2]{fig/multilevel_domain_sym.pdf}}%
+    \put(0.36788556,0.43720832){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$\vec{y}$}\end{tabular}}}}%
+    \put(0.36313058,0.15334401){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$\vec{y}\,^\dagger$}\end{tabular}}}}%
+    \put(0.03347064,0.47254187){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$\vec{x}$}\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=3]{fig/multilevel_domain_sym.pdf}}%
+    \put(0.2510064,0.60585538){\color[rgb]{0.23529412,0.22745098,0.70588235}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{${S}\,^{(i)}$}\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=4]{fig/multilevel_domain_sym.pdf}}%
+    \put(0.09475849,0.52406679){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$\mathcal{R}^{(i)}$}\end{tabular}}}}%
+    \put(0.09475849,0.19852941){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{${\mathcal{R}^{(i)}}^\dagger$}\end{tabular}}}}%
+    \put(0.09475849,0.337965){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$\overline{\mathcal{R}^{(i)}}^\dagger$}\end{tabular}}}}%
+    \put(0.00715022,0.31306784){\color[rgb]{0.23529412,0.22745098,0.70588235}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{${S}\,^{(i)}$}\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=5]{fig/multilevel_domain_sym.pdf}}%
+    \put(0.78222545,0.04088399){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$\Omega^\dagger$}\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=6]{fig/multilevel_domain_sym.pdf}}%
+    \put(0.63036191,0.59276027){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$\partial\Omega$}\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=7]{fig/multilevel_domain_sym.pdf}}%
+  \end{picture}%
+\endgroup%

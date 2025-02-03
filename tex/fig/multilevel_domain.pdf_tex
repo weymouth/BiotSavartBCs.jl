@@ -54,14 +54,14 @@
     \lineheight{1}%
     \setlength\tabcolsep{0pt}%
     \put(0,0){\includegraphics[width=\unitlength,page=1]{fig/multilevel_domain.pdf}}%
-    \put(0.59972017,0.07748794){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$\mathcal{D}^{(4)}$}\end{tabular}}}}%
-    \put(0.29801066,0.23142392){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$\mathcal{D}^{(3)}$}\end{tabular}}}}%
+    \put(0.46694916,0.05001806){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$\mathcal{D}^{(4)}$}\end{tabular}}}}%
+    \put(0.27674346,0.169755){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$\mathcal{D}^{(3)}$}\end{tabular}}}}%
     \put(0.10855274,0.46953991){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$\mathcal{D}^{(1)}$}\end{tabular}}}}%
-    \put(0.16835378,0.36265905){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$\mathcal{D}^{(2)}$}\end{tabular}}}}%
+    \put(0.15324625,0.35081014){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$\mathcal{D}^{(2)}$}\end{tabular}}}}%
     \put(-0.00126659,0.00483792){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$\partial\Omega$}\end{tabular}}}}%
     \put(0,0){\includegraphics[width=\unitlength,page=2]{fig/multilevel_domain.pdf}}%
     \put(0.87334936,0.60347001){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$\Omega$}\end{tabular}}}}%
-    \put(0.35225235,0.33619991){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$\mathcal{B}$}\end{tabular}}}}%
+    \put(0.30206989,0.3302554){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$\mathcal{B}$}\end{tabular}}}}%
     \put(0,0){\includegraphics[width=\unitlength,page=3]{fig/multilevel_domain.pdf}}%
     \put(0.22991324,0.60424774){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$\vec{y}\,^{(2)}$}\end{tabular}}}}%
     \put(0.19102677,0.18014011){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$\vec{y}\,^{(3)}$}\end{tabular}}}}%
@@ -69,10 +69,11 @@
     \put(0,0){\includegraphics[width=\unitlength,page=4]{fig/multilevel_domain.pdf}}%
     \put(0.16256509,0.66887456){\color[rgb]{0.23529412,0.22745098,0.70588235}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{${S}\,^{(2)}$}\end{tabular}}}}%
     \put(0,0){\includegraphics[width=\unitlength,page=5]{fig/multilevel_domain.pdf}}%
-    \put(0.79841485,0.05172307){\color[rgb]{0.23529412,0.22745098,0.70588235}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$h^{(4)}$}\end{tabular}}}}%
+    \put(0.79841485,0.03302694){\color[rgb]{0.23529412,0.22745098,0.70588235}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$h^{(4)}$}\end{tabular}}}}%
     \put(0,0){\includegraphics[width=\unitlength,page=6]{fig/multilevel_domain.pdf}}%
     \put(0.39856584,0.13821602){\color[rgb]{0.23529412,0.22745098,0.70588235}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{$h^{(3)}$}\end{tabular}}}}%
     \put(0,0){\includegraphics[width=\unitlength,page=7]{fig/multilevel_domain.pdf}}%
     \put(-0.00175128,0.40253662){\color[rgb]{0.23529412,0.22745098,0.70588235}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}\textbf{${S}\,^{(2)}$}\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=8]{fig/multilevel_domain.pdf}}%
   \end{picture}%
 \endgroup%
