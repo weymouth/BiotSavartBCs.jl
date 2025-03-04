@@ -139,6 +139,6 @@ sim = circ(D,2*D);sim_step!(sim,4,remeasure=false);
 @inside ω[I] = WaterLily.curl(3,I,sim.flow.u)*sim.L/sim.U
 pyplot(dpi=300)
 contourf(clamp.(ω[inside(ω)],-6,6)';aspect_ratio=:equal,
-    framestyle=:box,axis=nothing,
+    framestyle=nothing,axis=nothing,size=(355,200),
     cbar=:top,c=:RdBu,clims=(-6,6),lw=0,levels=(union(-6:-1,1:6)))
 savefig("ImpCircle_4_vort.png")
