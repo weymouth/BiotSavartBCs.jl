@@ -132,8 +132,13 @@ end; plot!(dpi=300,ylabel="Drag coefficient",xlabel="convective time",ylims=(0,1
 savefig("ImpCircle_Cd.png")
 
 # Flow plot
-sim = circ(D,2*D,mem=CUDA.CuArray);sim_step!(sim,4,remeasure=false);
+using Measures,Plots,PyPlot
+D=128
+sim = circ(D,2*D);sim_step!(sim,4,remeasure=false);
 ω = sim.flow.σ
 @inside ω[I] = WaterLily.curl(3,I,sim.flow.u)*sim.L/sim.U
-contourf(clamp.(ω[inside(ω)],-6,6)';aspect_ratio=:equal,c=:RdBu_11,clims=(-6,6),lw=0,levels=10)
+pyplot(dpi=300)
+contourf(clamp.(ω[inside(ω)],-6,6)';aspect_ratio=:equal,
+    framestyle=:box,axis=nothing,
+    cbar=:top,c=:RdBu,clims=(-6,6),lw=0,levels=(union(-6:-1,1:6)))
 savefig("ImpCircle_4_vort.png")
