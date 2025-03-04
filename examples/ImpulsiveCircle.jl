@@ -1,19 +1,8 @@
 using WaterLily,StaticArrays,CUDA,BiotSavartBCs
-
-function circ(D,m;shift=0,Re=550,U=1,makeSim=BiotSimulation,kwargs...)
-    body = AutoBody((x,t)->hypot(x[1]-m÷2,x[2]-m÷2,shift)-D÷2)
+function circ(D,m;Re=550,U=1,makeSim=BiotSimulation,kwargs...)
+    body = AutoBody((x,t)->hypot(x[1]-m÷2,x[2]-m÷2)-D÷2)
     makeSim((2m,m), (U,0), D; body, ν=U*D/Re, kwargs...)
 end
-
-using WaterLily: Flow,BCTuple,BDIM!,CFL,scale_u!
-using BiotSavartBCs: biot_project!
-function impulsive_start!(a::Flow{N},b,ω...;fmm=true,tol=1e-6,itmx=32) where N
-    a.u⁰ .= a.u; scale_u!(a,0); U = BCTuple(a.U,a.Δt,N)
-    BDIM!(a); biot_project!(a,b,ω...,U;fmm,tol,itmx)
-    a.p .= 0
-    a.Δt[1] = CFL(a)
-end
-impulsive_start!(sim::BiotSimulation;kwargs...) = impulsive_start!(sim.flow,sim.pois,sim.ω,sim.x₀,sim.tar,sim.ftar;fmm=sim.fmm,kwargs...)
 
 using Plots,TypedTables
 function update_Ix!(sim,t₀)
@@ -126,20 +115,26 @@ function small_time(t;Re=550, k=4√(t/Re))
 end
 
 begin
-    plot(Billuard[1,:],Billuard[2,:],label="Billuard et al. ",ylabel="Cd",xlabel="tU/D",ylims=(0,1.6))
-    scatter!(koumoutsakos[1,:],koumoutsakos[2,:],label="Koumoutsakos and Leonard",
-            m=(5, :square, :white, stroke(1, color)),legend=:bottomright)
-    scatter!(Gillis[1,:],Gillis[2,:],label="Gillis",m=(5, :white, stroke(1, color)),c=:black,marker=:circle)
+    # scatter(Billuard[1,1:5:end],Billuard[2,1:5:end],label="Billuard et al. ")
+    scatter(koumoutsakos[1,:],koumoutsakos[2,:],label="Koumoutsakos and Leonard",m=(5, :square, :white, stroke(1, color)))
+    scatter!(Gillis[1,:],Gillis[2,:],label="Gillis et al.",m=(5, :white, stroke(1, color)),c=:black,marker=:circle)
     plot!(collect(0:0.01:0.35),small_time.(0:0.01:0.35),ls=:dash,c=:black,label="Theoretical curve")
-    cmap = palette(:Greens,4)
-    for (i,m) in enumerate((7,9,11,13))
-        sim = circ(128,m*128÷4,shift=0,mem=CUDA.CuArray);impulsive_start!(sim)
-        biot = [update_Ix!(sim,t₀) for t₀ in 0:0.02:4] |>Table |> with_drag
-        plot!(biot.t,biot.Cd,c=cmap[i],label="Present, W/D=$m/4")
+    bmap = palette(:Blues,5)
+    for (i,m) in enumerate((9,11,13))
+        sim = circ(128,m*128÷4,mem=CUDA.CuArray)
+        biot = [update_Ix!(sim,t₀) for t₀ in 0:0.02:6] |>Table |> with_drag
+        plot!(biot.t,biot.Cd,c=bmap[i+1],label="Present, D/W=$(round(4/m,digits=2))")
     end
-end;plot!()
+    rmap = palette(:Reds,6)
+    for (i,m) in enumerate((3,5,8,24))
+        sim = circ(128,m*128,mem=CUDA.CuArray,makeSim=Simulation)
+        refl = [update_Ix!(sim,t₀) for t₀ in 0:0.02:6] |>Table |> with_drag
+        plot!(refl.t,refl.Cd,c=rmap[i+1],ls=:dashdot,label="Reflection, D/W=1/$m")
+    end
+end; plot!(dpi=300,ylabel="Cd",xlabel="tU/D",ylims=(0,1.6),legend=:bottomright)
 savefig("ImpCircle_Cd.png")
 
+sim = circ(128,2*128,mem=CUDA.CuArray);sim_step!(sim,4,remeasure=false);
 ω = sim.flow.σ
 @inside ω[I] = WaterLily.curl(3,I,sim.flow.u)*sim.L/sim.U
 contourf(clamp.(ω[inside(ω)],-6,6)';aspect_ratio=:equal,c=:RdBu_11,clims=(-6,6),lw=0,levels=10)
