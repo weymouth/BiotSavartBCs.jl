@@ -340,33 +340,43 @@ A key difference between these approaches and a classic FMM is that the contribu
 Finally, we note that we can parallelize the velocity reconstruction to further accelerate the method since each Biot-Savart kernel evaluation is independent. Our implementation applies GPU or CPU multi-threading to parallelize the calculation and pooling of the vorticity across the sources, as well as the kernel function evaluation and velocity unpooling across the targets.
 
 
-\section{Validation: Flow around a 2D cylinder at $\text{Re}=550$}
-
-We start our analysis with the flow behind a 2D circular cylinder of diameter $D$. The cylinder is immersed in a viscous fluid with free-stream velocity $U=(1,0)$. The viscosity is set such that the Reynolds number is $\text{Re}=\frac{UD}{\nu}=550$. We perform a domain study by varying the domain sizes from $5D\times3D$ up to $30D\times24D$ and, for each domain, compare the reflective and Biot-Savart boundary conditions to the analytical solution \cite{Collins1973TheCylinder} and the reference data presented in \cite{KoumoutsakostAN1995High-resolutionMethods, Gillis2019AMethod}. 
-
-Figure~\ref{fig:cylinder_force} shows the total drag force acting on the cylinder for the various domain sizes and boundary conditions. The Biot-Savart boundary conditions yield the best results with an excellent collapse of the drag forces regardless of the domain size, including the tiny $5D\times3D$ domain which captures no more than two wake vortices at any time. Reflective boundary conditions induce extremely large blockage effects for small domains and only slowly converge to the Biot-Savart boundary solution with a domain 48x smaller. Additionally, we compare the results obtained with a grid aligned with the mean flow direction to results obtained on a $7D\times 7D$ domain where the flow direction is $\vec{U}=[\sfrac 1{\sqrt{2}},\sfrac 1{\sqrt{2}}]$ with the Biot-Savart boundary conditions. Results are also presented in Fig.~\ref{fig:cylinder_force} and are almost indistinguishable from the results using the aligned domain.
-
-In addition to the total drag forces acting on the cylinder, we look at the vortex shedding frequency in the wake. Here again, the Biot-Savart boundary conditions show an excellent collapse of the shedding frequency, which matches that of classical bluff body vortex shedding frequency of $\text{St}\sim 0.3$. The high blockage effect induced by the reflective boundary conditions induces fast flow around the cylinder, adding a non-physical domain-size dependence on the shedding frequency.
-
-\begin{figure}
-    \centering
-    \begin{subfigure}{.5\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{tex//fig/force.png}
-    \end{subfigure}%
-    \begin{subfigure}{.5\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{tex/fig/fft.png}
-    \end{subfigure}%
-    \caption{(left) Drag force acting on the circular cylinder at $\text{Re}=200$ for various combinations of boundary conditions and domain size. The rotated domain consists of a $7D\times7D$ domain, with the cylinder centered at $1.5D\times1.5D$ and a free stream velocity of $\vec{U}=(1/\sqrt2,1/\sqrt2)$. (right) The frequency spectrum of the wake of the cylinder for the same combination of boundary conditions and domain size shows the classical shedding frequency at $\text{St}=0.3$.}
-    \label{fig:cylinder_force}
-\end{figure}
-
 \section{Confined vorticity applications}
 
 We first validate the application of the Biot-Savart boundary conditions using a set of impulsive flow problems. The flow is truly irrotational outside the computational domain, matching the implicit assumptions required to use the Biot-Savart equations to reconstruct the velocity on the boundary. 
 
 Our Biot-Savart boundary conditions are implemented inside \textbf{\color{cyan}{{WaterLily.jl}}}\footnote{\url{https://github.com/WaterLily-jl/WaterLily.jl}}, a fast, immersed-boundary flow solver based on the Boundary data immersion method \cite{Maertens2015} that can execute both on CPU and GPU \cite{Weymouth2023WaterLily.jl:Execution}. To leverage the GPU capability of the flow solver and fully benefit from our novel boundary conditions, we perform all computations presented herein on an NVIDIA-A6000 GPU (48GB memory). The complete code and instructions needed to reproduce these results are freely available at \url{https://github.com/weymouth/BiotSavartBCs.jl}.
+
+
+\subsection{Flow around a 2D cylinder at $\text{Re}=550$}
+
+We start our analysis with the flow behind a 2D circular cylinder of diameter $D$. The cylinder is immersed in a viscous fluid with free-stream velocity $U=(1,0)$. The viscosity is set such that the Reynolds number is $\text{Re}=\frac{UD}{\nu}=550$. We set $D=128$ cells for all tests and use a $2\times 1$ rectangular domain, varying the width $W$ from $=2D\ldots 24D$. Figure~\ref{fig:cylinder_force}(left) shows the vorticity field on the smallest domain at convective time $tU/D=4$.
+
+Figure~\ref{fig:cylinder_force}(right) compares the predicted drag coefficient using new Biot-Savart boundary conditions to the analytical solution \cite{Collins1973TheCylinder} (for $t=\epsilon$) and two sets of reference data from high-resolution vortex-based methods \cite{KoumoutsakostAN1995High-resolutionMethods, Gillis2019AMethod}. The new condition is able to accurately predict the total drag force on the cylinder, matching the theoretical and vortex-based methods even when using the smallest $4D\times2D$ domain with 50\% blockage. Using an even smaller $3D\times1.5D$ domain is still numerically stable, but causes the starting vortex pair to exceed the domain boundaries by $tU/D\approx3$. 
+Reflective boundary conditions induce extremely large blockage effects for small domains and only slowly converge to the Biot-Savart boundary solution requiring a domain size 144 times larger. %Additionally, we compare the results obtained with a grid aligned with the mean flow direction to results obtained on a $7D\times 7D$ domain where the flow direction is $\vec{U}=[\sfrac 1{\sqrt{2}},\sfrac 1{\sqrt{2}}]$ with the Biot-Savart boundary conditions. Results are also presented in Fig.~\ref{fig:cylinder_force} and are almost indistinguishable from the results using the aligned domain.
+
+%In addition to the total drag forces acting on the cylinder, we look at the vortex shedding frequency in the wake. Here again, the Biot-Savart boundary conditions show an excellent collapse of the shedding frequency, which matches that of classical bluff body vortex shedding frequency of $\text{St}\sim 0.3$. The high blockage effect induced by the reflective boundary conditions induces fast flow around the cylinder, adding a non-physical domain-size dependence on the shedding frequency.
+
+\begin{figure}
+    \centering
+    \begin{subfigure}{.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{tex//fig/ImpCircle_4_vort.png}
+    \end{subfigure}%
+    \begin{subfigure}{.5\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{tex//fig/ImpCircle_Cd.png}
+    \end{subfigure}%
+    % \begin{subfigure}{.5\textwidth}
+    %     \centering
+    %     \includegraphics[width=\textwidth]{tex/fig/fft.png}
+    % \end{subfigure}%
+    \caption{(Right) Vorticity field $\omega D/U$ at convective time $tU/D=4$
+    on an impulsively started circular cylinder at $\text{Re}=550$ over the full $2D\times 4D$ domain. (left) Early time history of the drag coefficient $C_d=F_d/\frac 12 \rho U^2 D$ for various domain blockage ratios $D/W$. The present Biot-Savart BCs match the theoretical and vortex-based methods even for left domain with 50\% blockage.
+    % (right) The frequency spectrum of the wake of a cylinder at $\text{Re}=200$, which shows that the new boundary condition predicts the classical shedding frequency at $\text{St}=0.3$ independent of domain size.
+    }
+    \label{fig:cylinder_force}
+\end{figure}
+
 
 \subsection{2D and 3D flow around an accelerating disk}
 
