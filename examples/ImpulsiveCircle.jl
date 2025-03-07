@@ -56,14 +56,13 @@ function small_time(t;Re=550, k=4√(t/Re))
 end
 
 # Generate present method's data
-D,m_2,m_1 = 128,(4,5,6),(3,5,8,24)
+D,m_2,m_1 = 128,(4,5,6),(5,10,20,40)
 @time biot = map(m_2) do m
     sim = circ(D,m*D÷2,shift=D÷8,mem=CUDA.CuArray)
-    e = m==4 ? 5 : 6
-    [update_Ix!(sim,t₀) for t₀ in 0:0.02:e] |>Table |> with_drag
+    [update_Ix!(sim,t₀) for t₀ in 0:0.02:min(m+1,6)] |>Table |> with_drag
 end;
 @time refl = map(m_1) do m
-    sim = circ(D,m*D,mem=CUDA.CuArray,makeSim=Simulation)
+    sim = circ(D,m*D÷2,mem=CUDA.CuArray,makeSim=Simulation)
     [update_Ix!(sim,t₀) for t₀ in 0:0.02:6] |>Table |> with_drag
 end;
 
@@ -80,7 +79,9 @@ begin
     end
     rmap = palette(:Reds,6)
     for (i,m,dat) in zip(1:4,m_1,refl)
-        plot!(dat.t,dat.Cd,c=rmap[i+1],ls=:dashdot,label="Reflection, D/W=1/$m")
+        m2 = m/2
+        mod(m2,1)==0 && (m2 = Int(m2))
+        plot!(dat.t,dat.Cd,c=rmap[i+1],ls=:dashdot,label="Reflection, D/W=1/$m2")
     end
 end; plot!(dpi=300,size=(550,340),ylabel="Drag coefficient",xlabel="convective time",ylims=(0,1.6),legend=:bottomright)
 savefig("ImpCircle_Cd.png")
