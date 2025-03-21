@@ -34,43 +34,53 @@ for (biot,St,n,m) in params
     jldsave("airfoil_wake_$(n)L_$(m)L_St$(St)_$(biot).jld2"; f=forces)
 end
 
+function average_last(data,St,n,L;data_ids=[3,5])
+    idx = floor(data[end,1]*St-n).<data[:,1]*St.<floor(data[end,1]*St) # last n cycles
+    return sum(data[idx,data_ids])./(sum(idx)*L)
+end
+
 # make the figures for the paper
-mean_CL = []; mean_CL2=[]
+mean_CL = []; mean_CL2=[]; mean_CL_large=[]
+blues = colormap("Blues", 8)[3:end] # Biot savart
+reds = colormap("Oranges", 8)[3:end] # reflection
 for St in [0.2,0.3,0.4,0.5,0.6]
     plt = plot(dpi=300)
-    plt2 = plot(dpi=300)
-    St==0.6 && jldopen("airfoil_wake_60L_40L_St$(St)_false.jld2") do file
-        forces = reduce(vcat,file["f"]'); L=64
-        plot!(plt,forces[:,1]*St,sum(forces[:,[3,5]];dims=2)./L,label="Airfoil St:$St Reflection 2x";c=:Red)
-        plot!(plt2,forces[:,1]*St,sum(forces[:,[3,5]];dims=2)./L,label="Airfoil St:$St Reflection 2x";c=:Red)
-    end
-    for biot ∈ [true false]
-        (n,m) = biot ? (6,4) : (30,20) # select domain size
+    St==0.6 && (plt2 = plot(dpi=300))
+    for biot ∈ [false true]
+        L=64; (n,m) = biot ? (6,4) : (30,20) # select domain size
         jldopen("airfoil_wake_$(n)L_$(m)L_St$(St)_$(biot).jld2") do file
-            BC = ifelse(biot,"Biot-Savart","Reflection")
-            ls = ifelse(biot,:solid,:dash)
-            forces = reduce(vcat,file["f"]'); L=64
-            plot!(plt,forces[:,1]*St,sum(forces[:,[3,5]];dims=2)./L,label="Airfoil St:$St "*BC;ls)
-            (St==0.6 && !biot) && plot!(plt2,forces[:,1]*St,sum(forces[:,[3,5]];dims=2)./L,label="Airfoil St:$St "*BC;ls)
-            idx = floor(forces[end,1]*St/2).<forces[:,1]*St.<floor(forces[end,1]*St) # only the second half
-            L_mean = sum(forces[idx,[3,5]])./(length(idx)*L)
+            BC,ls,color = ifelse(biot,("Biot-Savart  (6Lx4L)",:solid,blues),("Reflection (30Lx20L)",:dash,reds))
+            forces = reduce(vcat,file["f"]')
+            plot!(plt,forces[:,1]*St,sum(forces[:,[3,5]];dims=2)./L,label=BC;ls,c=color[Int(St*10-1)])
+            (St==0.6 && !biot) && plot!(plt2,forces[:,1]*St,sum(forces[:,[3,5]];dims=2)./L,label=BC;ls,c=color[end])
+            L_mean = average_last(forces,St,5,L)
+            println("Case = ($(n)x$m) St=$St"*ifelse(biot," Biot",""))
+            println("▷ CL mean = $L_mean")
             push!(mean_CL,L_mean)
-            plot!(plt,[0,maximum(forces[:,1]*St)],[L_mean,L_mean],color=:black,label="Mean force "*BC;ls)
         end
     end
-    ylims!(plt2,-12,12); savefig(plt2,"convergence_domain.png")
+    St==0.6 && jldopen("airfoil_wake_60L_40L_St$(St)_false.jld2") do file
+        forces = reduce(vcat,file["f"]'); L=64
+        L_mean = average_last(forces,St,5,L)
+        push!(mean_CL_large,L_mean)
+        println("Case = (60x40) St=$St")
+        println("▷ CL mean = $L_mean")
+        plot!(plt,forces[:,1]*St,sum(forces[:,[3,5]];dims=2)./L,label="Reflection (60Lx40L)";c=:Red)
+        plot!(plt2,forces[:,1]*St,sum(forces[:,[3,5]];dims=2)./L,label="Reflection (60Lx40L)";c=:Red)
+        ylims!(plt2,-12,12); xlims!(plt2,50,60); savefig(plt2,"convergence_domain.png")
+    end
     if St in [0.5,0.6]
         jldopen("airfoil_wake_12L_8L_St$(St)_true.jld2") do file
             forces = reduce(vcat,file["f"]'); L=64
-            plot!(plt,forces[:,1]*St,sum(forces[:,[3,5]];dims=2)./L,label="Airfoil St:$St Biot-Savart 2x";ls=:dot)
-            idx = floor(forces[end,1]*St/2).<forces[:,1]*St.<floor(forces[end,1]*St) # only the second half
-            L_mean = sum(forces[idx,[3,5]])./(length(idx)*L)
+            L_mean = average_last(forces,St,5,L)
+            plot!(plt,forces[:,1]*St,sum(forces[:,[3,5]];dims=2)./L,label="Biot-Savart (12Lx8L)";ls=:dot)
+            println("Case = (12x8) St=$St Biot")
+            println("▷ CL mean = $L_mean")
             push!(mean_CL2,L_mean)
-            plot!(plt,[0,maximum(forces[:,1]*St)],[L_mean,L_mean],color=:black,label="Mean force Biot-Savart 2x";ls=:dot)
         end
     end
-    xlims!(0,100*St);ylims!(-25,25);
-    title!("Deflected Wake Lift Forces");xlabel!("Cycles");ylabel!("2Force/ρUR")
+    xlims!(0*St,100*St); ylims!(-12,12);
+    title!("Deflected Wake Lift Forces");xlabel!("Cycles");ylabel!("2F₂/ρU²L")
     savefig("force_deflected_wake_St$St.png")
 end
 
@@ -78,46 +88,45 @@ end
 let
     St = [0.2,0.3,0.4,0.5,0.6]
     plt = plot(dpi=300)
-    plot!(plt,St,abs.(mean_CL[2:2:end]),label="Cₗ reflection";marker=:x,ls=:dash)
-    plot!(plt,St,abs.(mean_CL[1:2:end]),label="Cₗ Biot-Savart";marker=:o,ls=:solid)
-    plot!(plt,[0.5,0.6],abs.(mean_CL2),label="Cₗ Biot-Savart 2x";marker=:s,ls=:solid)
-    xlims!(0.,0.8); ylims!(-0.5,2); plot!(legend=:topleft)
+    plot!(plt,St,mean_CL[1:2:end],   label="Reflection (30Lx20L)";marker=:rect,ls=:dash,c=reds[3])
+    scatter!(plt,[0.6],mean_CL_large,label="Reflection (60Lx40L)";marker=:o,c=reds[6])
+    plot!(plt,St,mean_CL[2:2:end],   label="Biot-Savart   (6Lx4L)";marker=:s,ls=:solid,c=blues[3])
+    plot!(plt,[0.5,0.6],mean_CL2,   label= "Biot-Savart (12Lx8L)";marker=:x,ls=:solid,c=blues[6])
+    xlims!(0.,0.8); ylims!(-3.5,0.5); plot!(legend=:bottomleft)
     xlabel!("Strouhal number"); ylabel!("Mean Lift coefficient")
     savefig("CL_mean_deflected_wake.png")
 end
 # Poincaré map
+using DSP
+function mean_filter(data,idx;L=64,r=Lowpass(0.01),m=Butterworth(4))
+    return filtfilt(digitalfilter(r, m),sum(data[4:end,idx];dims=2)./L)[:,1]
+end
+
 let
-    using DSP
-    responsetype = Lowpass(0.01)
-    designmethod = Butterworth(4)
     plt = plot(dpi=300)
-    for biot ∈ [true false]
+    for biot ∈ [false true]
         (n,m) = biot ? (6,4) : (30,20) # select domain size
-        St=0.6; L=64
-        jldopen("airfoil_wake_$(n)L_$(m)L_St$(St)_$(biot).jld2") do file
-            BC = ifelse(biot,"Biot-Savart","Reflection")
-            ls = ifelse(biot,:solid,:dash)
+        jldopen("airfoil_wake_$(n)L_$(m)L_St0.6_$(biot).jld2") do file
+            BC,ls,color = ifelse(biot,("Biot-Savart",:solid,blues[4]),("Reflection",:dash,reds[4]))
             forces = reduce(vcat,file["f"]')
-            Lift = filtfilt(digitalfilter(responsetype, designmethod), sum(forces[4:end,[3,5]];dims=2)./L)
-            Drag = filtfilt(digitalfilter(responsetype, designmethod), sum(forces[4:end,[2,4]];dims=2)./L)
-            plot!(plt,Lift,Drag,label=:none,lw=0.2)
+            plot!(plt,mean_filter(forces,[3,5]),mean_filter(forces,[2,4]),label=:none,lw=0.2,c=color)
+        end
+        biot==false && jldopen("airfoil_wake_60L_40L_St0.6_false.jld2") do file
+            forces = reduce(vcat,file["f"]')
+            plot!(plt,mean_filter(forces,[3,5]),mean_filter(forces,[2,4]),label=:none,lw=0.2,c=reds[6])
         end
     end
     # the same for 2x Biot-Savart
-    biot = true; St=0.6
-    jldopen("airfoil_wake_12L_8L_St0.6_$(biot).jld2") do file
-        St=0.6; L=64;
-        BC = "Biot-Savart"; ls = :solid
+    jldopen("airfoil_wake_12L_8L_St0.6_true.jld2") do file
         forces = reduce(vcat,file["f"]')
-        Lift = filtfilt(digitalfilter(responsetype, designmethod), sum(forces[4:end,[3,5]];dims=2)./L)
-        Drag = filtfilt(digitalfilter(responsetype, designmethod), sum(forces[4:end,[2,4]];dims=2)./L)
-        plot!(plt,Lift,Drag,label=:none,lw=0.2)
+        plot!(plt,mean_filter(forces,[3,5]),mean_filter(forces,[2,4]),label=:none,lw=0.2,c=blues[6])
     end
     # get legend better
-    plot!(plt,[-100,-100],[0.,0.],label="Airfoil St:$St Biot-Savart",color=plt.series_list[1].plotattributes[:linecolor])
-    plot!(plt,[-100,-100],[0.,0.],label="Airfoil St:$St Reflection",color=plt.series_list[2].plotattributes[:linecolor])
-    plot!(plt,[-100,-100],[0.,0.],label="Airfoil St:$St Biot-Savart 2x",color=plt.series_list[3].plotattributes[:linecolor])
+    plot!(plt,[-100,-100],[0.,0.],label="Reflection (30Lx20L)",lw=1.5,color=reds[4])
+    plot!(plt,[-100,-100],[0.,0.],label="Reflection (60Lx40L)",lw=1.5,color=reds[6])
+    plot!(plt,[-100,-100],[0.,0.],label="Biot-Savart   (6Lx4L)",lw=1.5,color=blues[4])
+    plot!(plt,[-100,-100],[0.,0.],label="Biot-Savart (12Lx8L)",lw=1.5,color=blues[6])
     xlims!(-15,15);ylims!(-1.5,1.5);
-    title!("Poincaré map");ylabel!("Drag coefficient");xlabel!("Lift coefficient")
+    ylabel!("Drag coefficient");xlabel!("Lift coefficient")
     savefig("poincare_deflected_wake.png")
 end

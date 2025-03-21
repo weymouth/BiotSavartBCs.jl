@@ -1,5 +1,6 @@
 using WaterLily,StaticArrays,CUDA,BiotSavartBCs
 using JLD2,Plots
+using Logging; disable_logging(Logging.Debug)
 WaterLily.CFL(a::Flow) = WaterLily.CFL(a;Δt_max=1) # good idea when accelerating from rest
 function make_sim_acc(dims; N=128, R=32, a=0.5, U=1, Re=1e3, thk=2, mem=Array, use_biotsavart=false, fmm=true)
     disk2D(x,t) = (z=x-SA[-R,0].-N/2; Rt=R-thk; y=z.-SA[0,clamp(z[2],-Rt,Rt)]; √sum(abs2,y)-thk)
@@ -16,7 +17,8 @@ slice(a::AbstractArray{T,2}) where T = Array(a)
 params = [(2,false,4,true),(3,false,2,true),(2,true,4,true), # 2D and 3D reflection + 2D Biot-Savart fmm
           (3,true,1,true),(3,true,2,true),(3,true,4,true), # 3D fmm dist ∈ [1,2,4]
           (3,true,1,false),(3,true,2,false),(3,true,4,false)]# 3D fmm dist ∈ [1,2,4]
-# size of the domain
+
+          # size of the domain
 N = 2^7; R = N/3
 for (Dim,use_biotsavart,dist,fmm) ∈ params
     @show Dim,use_biotsavart,dist,fmm
@@ -24,8 +26,10 @@ for (Dim,use_biotsavart,dist,fmm) ∈ params
     sim = make_sim_acc(ntuple(i->N,Dim);N,R,mem=CUDA.CuArray,use_biotsavart,fmm);
     Rslice = Dim==2 ? inside(sim.flow.p) : CartesianIndices((2:N+1,2:N+1,N÷2+1:N÷2+1))
     forces = []; σ = []; p = [];
-    for t in 1:6
-        @time while sim_time(sim)<t
+    fname = "disk_$(Dim)D_$(N)D_$(use_biotsavart)"
+    WaterLily.logger(fname*".log")
+    @time for t in 1:6
+        while sim_time(sim)<t
             sim_step!(sim;remeasure=false)
             f = 2WaterLily.pressure_force(sim)/R^(Dim-1)
             push!(forces,[sim_time(sim),f[1]])
@@ -33,6 +37,7 @@ for (Dim,use_biotsavart,dist,fmm) ∈ params
         @inside sim.flow.σ[I] = WaterLily.curl(3,I,sim.flow.u)*sim.L/sim.U
         push!(p,slice(sim.flow.p[Rslice]))
         push!(σ,slice(sim.flow.σ[Rslice]))
+        plot_logger(fname*".log"); savefig(fname*".png")
     end
     jldsave("disk_$(Dim)D_$(N)D_$(use_biotsavart)_"*ifelse(fmm,"FMM","TREE")*"_$dist.jld2"; f=forces, σ=σ, p=p)
 end
@@ -48,13 +53,13 @@ let
             t = df[:,1]; idx = t .< 3
             t = t[idx]; f = df[idx,2]
             Ca=Dim==2 ? π : 8/3
-            ls = ifelse(Dim==2,:solid,:dash)
-            c = ifelse(use_biotsavart,1,2)
+            ls = ifelse(Dim==3,:solid,:dashdot)
+            c = ifelse(use_biotsavart,colormap("Blues",8),colormap("Reds",8))[dist+4]
             @show -f[1]/Ca
-            ((Dim==3 && dist==2 && fmm) || Dim==2) && plot!(f_f,t,-f./Ca,label="$(Dim)D "*(use_biotsavart ? "Biot-Savart" : "Reflection");lw=2,ls,c)
+            ((Dim==3 && dist==2 && fmm) || Dim==2) && plot!(f_f,t,-f./Ca,label="$(Dim)D "*(use_biotsavart ? "Biot-Savart (FMℓM S=$dist)" : "Reflection");lw=2,ls,c)
             if (Dim==3 && use_biotsavart) # method comparison
-                ls = ifelse(fmm,:solid,:dashdot); cs = ifelse(fmm,colormap("Blues",8),colormap("Reds",8))
-                plot!(f_t,t,-f./Ca,label=ifelse(fmm,"FMM","Tree")*" (S=$(dist))";lw=2,ls,c=cs[dist+4])
+                ls,c = ifelse(fmm,(:solid,c),(:dashdot,colormap("Greens",8)[dist+4]));
+                plot!(f_t,t,-f./Ca,label=ifelse(fmm,"FMℓM","Tree")*" (S=$(dist))";lw=2,ls,c)
             end
             ((Dim==3 && dist==2 && fmm) || Dim==2) && for t ∈ 1:6
                 p = file["p"][t]; σ = file["σ"][t]
