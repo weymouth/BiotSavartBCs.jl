@@ -48,20 +48,22 @@ duration_treeC = [btime_biotBC!(uC,U,ωC,tarC,ftarC,dist;fmm=false) for dist ∈
 duration_fmmC =  [btime_biotBC!(uC,U,ωC,tarC,ftarC,dist;fmm=true) for dist ∈ 2 .^ collect(0:pow-1)]
 
 using Plots,JLD2
+reds = colormap("Reds",8)[3:end]
+blues = colormap("Blues",8)[3:end]
 plot(2.0.^collect(0:5),duration_fmmC[end]./duration_tree,xlabel="S",ylabel="speedup",
-     label="Tree - CPU",lw=2,c=1,yaxis=:log,xaxis=:log, xlims=(1,32),ylims=(0.1,10000))
-plot!(2.0.^collect(0:5),duration_fmmC[end]./duration_fmm,lw=2,c=2,label="FMM - CPU")
-plot!(2.0.^collect(0:5),duration_fmmC[end]./duration_treeC,lw=2,c=1,ls=:dashdot,label="Tree - GPU")
-plot!(2.0.^collect(0:5),duration_fmmC[end]./duration_fmmC,lw=2,c=2,ls=:dashdot,label="FMM - GPU")
+     label="Tree - CPU",lw=2,c=reds[4], yaxis=:log,xaxis=:log, xlims=(1,32),ylims=(0.1,10000))
+     plot!(2.0.^collect(0:5),duration_fmmC[end]./duration_treeC,lw=2,c=reds[6],ls=:dashdot,label="Tree - GPU")
+     plot!(2.0.^collect(0:5),duration_fmmC[end]./duration_fmm,lw=2,c=blues[4],label="FMℓM - CPU")
+plot!(2.0.^collect(0:5),duration_fmmC[end]./duration_fmmC,lw=2,c=blues[6],ls=:dashdot,label="FMℓM - GPU")
 jldsave("Hill_speedup.jld2";times=[duration_tree,duration_fmm,duration_treeC,duration_fmmC])
 savefig("Hill_speedup_dists.png")
 
 # Check error scaling with dist
-@inline d(I) = √sum(abs2,loc(0,I) .- (N-2)/2) - D/2; @inline J(I) = I+CartesianIndex(0,N÷2,0)
-function hill_error(u,ω,U=(0,0,1);dist=4)
+@inline d(I) = √sum(abs2,loc(0,I) .- (N-2)/2) - D/2;
+@inline J(I) = I+CartesianIndex(0,N÷2,0)
+function hill_error(u,ω,U=(0,0,1))
     ue = copy(u); u .= 0 # make sure it's empty
-    @eval BiotSavartBCs.close(T::CartesianIndex{3}) = T-$dist*oneunit(T):T+$dist*oneunit(T)
-    # targets are the full domain
+    # targets are the full domain, but we only care about a single slice
     R = map(ωᵢ->vcat(CartesianIndices(ωᵢ)...),ω); fR = flatten_targets(R)
     biotBC!(u,U,ω,R,fR;fmm=false) # can only use tree
     p = zeros(eltype(ue),(N,1,N))
@@ -69,18 +71,22 @@ function hill_error(u,ω,U=(0,0,1);dist=4)
     return p
 end
 
+pow = 7; N,D = 2^pow+2,2^(pow-3)
 pmap(p) = log10(p+10^-6.5)
 dis = range(1,N÷2,length=30)
 stats(p,i) = pmap(maximum(p[I] for I in CartesianIndices(p) if dis[i-1]<d(J(I))≤dis[i]))
-
 data = [];
-for dist ∈ 2 .^ collect(0:pow-1)
+for dist ∈ 2 .^ collect(0:pow-3)
     @show dist
-    _,u,ω = fill_hill(N,D);
-    p = hill_error(u,ω;dist)
+    @eval BiotSavartBCs.close(T::CartesianIndex{3}) = T-$dist*oneunit(T):T+$dist*oneunit(T)
+    _,u,ω = fill_hill(N,D); p = hill_error(u,ω)
+    flood(pmap.(p[:,1,:]),clims=(-6,-1),border=:none,cfill=:Greens)
+    savefig("Hill_error_dist$(dist).png")
     push!(data,[stats(p,i) for i in 2:lastindex(dis)])
 end
-save_object("Hill_error.jld2",data) # careful not to overwrite
+save_object("Hill_error.jld2",data) 
+
+# data = load_object("Hill_error.jld2")[1]
 
 colors = colormap("Blues",pow+2)
 plt = plot(xlabel="d/2R",ylabel="max(|uₑ|/U)",ylims=(10^-6,.1));
