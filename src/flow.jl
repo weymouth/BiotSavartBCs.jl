@@ -1,21 +1,26 @@
 # momentum step using bio_project
-import WaterLily: scale_u!,conv_diff!,BDIM!,CFL,accelerate!,time,BCTuple,@log
-function biot_mom_step!(a::Flow{N},b,ω...;fmm=true) where N
-    a.u⁰ .= a.u; scale_u!(a,0); U = BCTuple(a.U,a.Δt,N)
+import WaterLily: scale_u!,conv_diff!,BDIM!,CFL,accelerate!,time,udf!,@log
+function biot_mom_step!(a::Flow{N},b,ω...;λ=quick,udf=nothing,fmm=true,kwargs...) where N
+    a.u⁰ .= a.u; scale_u!(a,0); t₁ = sum(a.Δt); t₀ = t₁-a.Δt[end]
+    U = BCTuple(a.uBC,t₁,N); # BCs at t₁
     # predictor u → u'
     @log "p"
-    conv_diff!(a.f,a.u⁰,a.σ,ν=a.ν);
-    accelerate!(a.f,@view(a.Δt[1:end-1]),a.g,a.U)
+    conv_diff!(a.f,a.u⁰,a.σ,λ,ν=a.ν)
+    udf!(a,udf,t₀; kwargs...)
+    accelerate!(a.f,t₀,a.g,a.uBC)
     BDIM!(a);
     biot_project!(a,b,ω...,U;fmm) # new
     # corrector u → u¹
     @log "c"
-    conv_diff!(a.f,a.u,a.σ,ν=a.ν)
-    accelerate!(a.f,a.Δt,a.g,a.U)
+    conv_diff!(a.f,a.u,a.σ,λ,ν=a.ν)
+    udf!(a,udf,t₁; kwargs...)
+    accelerate!(a.f,t₁,a.g,a.uBC)
     BDIM!(a); scale_u!(a,0.5)
     biot_project!(a,b,ω...,U;fmm,w=0.5) # new
     push!(a.Δt,CFL(a))
 end
+BCTuple(f::Function,t::T,N) where T = ntuple(i->f(i,zero(SVector{N,T}),t),N)
+BCTuple(f::Tuple,t,N) = f
 
 # project using biot BCs
 import WaterLily: Vcycle!,smooth!
