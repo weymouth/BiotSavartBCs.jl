@@ -47,9 +47,9 @@ mutable struct BiotSimulation <: AbstractSimulation
     end
 end
 import WaterLily: sim_step! # new type dispatch
-function sim_step!(sim::BiotSimulation;remeasure=true,udf=nothing,kwargs...)
+function sim_step!(sim::BiotSimulation;remeasure=true,kwargs...)
     remeasure && measure!(sim)
-    biot_mom_step!(sim.flow,sim.pois,sim.ω,sim.x₀,sim.tar,sim.ftar;fmm=sim.fmm)
+    biot_mom_step!(sim.flow,sim.pois,sim.ω,sim.x₀,sim.tar,sim.ftar;fmm=sim.fmm,kwargs...)
 end
 # overload properties
 Base.getproperty(f::BiotSimulation, s::Symbol) = s in propertynames(f) ? getfield(f, s) : getfield(f.sim, s)
