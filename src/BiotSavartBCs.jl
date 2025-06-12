@@ -47,7 +47,7 @@ mutable struct BiotSimulation <: AbstractSimulation
     end
 end
 import WaterLily: sim_step! # new type dispatch
-function sim_step!(sim::BiotSimulation;remeasure=true,kwargs...)
+function sim_step!(sim::BiotSimulation;remeasure=true,meanflow=nothing,kwargs...)
     remeasure && measure!(sim)
     biot_mom_step!(sim.flow,sim.pois,sim.ω,sim.x₀,sim.tar,sim.ftar;fmm=sim.fmm,kwargs...)
 end
