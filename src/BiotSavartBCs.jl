@@ -34,13 +34,14 @@ mutable struct BiotSimulation <: AbstractSimulation
     ftar :: AbstractVector
     x₀   :: AbstractArray
     fmm  :: Bool
-    function BiotSimulation(args...; fmm=true, mem = Array, kwargs...)
+    nonbiotfaces :: NTuple
+    function BiotSimulation(args...; nonbiotfaces=(),  fmm=true, mem = Array, kwargs...)
         # WaterLily simulation
         sim = Simulation(args...; mem, kwargs...)
         # MultiLevel vorticity array (top level points to sim.flow.f)
         ω = MLArray(sim.flow.f) 
         # domain boundary target index arrays
-        tar = mem.(collect_targets(ω)); ftar = flatten_targets(tar)
+        tar = mem.(collect_targets(ω,nonbiotfaces)); ftar = flatten_targets(tar)
         # holder array for old pressure values
         x₀ = copy(sim.flow.p)
         new(sim,ω,tar,ftar,x₀,fmm)

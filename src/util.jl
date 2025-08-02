@@ -63,8 +63,8 @@ end
 # Collect "targets" on the faces of a MLArray
 using Base.Iterators
 slice(dims::NTuple{N},i,s) where N = CartesianIndices((ntuple( k-> k==i ? (s:s) : (2:dims[k]-1), N-1)...,(i:i)))
-faces(dims::NTuple{N}) where N = flatmap(i->flatmap(s->slice(dims,i,s),(1,dims[i])),1:N-1)
-collect_targets(ω) = map(ωᵢ->collect(faces(size(ωᵢ))),ω)
+faces(dims::NTuple{N},off) where N = flatmap(i->flatmap(s->slice(dims,i,s), ((-i∈off ? () : (1,))...,(i∈off ? () : (dims[i],))...)),1:N-1)
+collect_targets(ω,off=()) = map(ωᵢ->collect(faces(size(ωᵢ),off)),ω)
 flatten_targets(targets) = mapreduce(((level,targets),)->map(T->(level,T),targets),vcat,enumerate(targets))
 
 # Vector MLArray projection on targets
