@@ -68,7 +68,7 @@ collect_targets(ω,off=()) = map(ωᵢ->collect(faces(size(ωᵢ),off)),ω)
 flatten_targets(targets) = mapreduce(((level,targets),)->map(T->(level,T),targets),vcat,enumerate(targets))
 
 # Vector MLArray projection on targets
-project!(ml::Tuple,mltargets::Tuple) = for l ∈ reverse(2:lastindex(ml)-1)
+project!(ml::Tuple,mltargets::Tuple) = for l ∈ reverse(1:lastindex(ml)-1)
     project!(ml[l],ml[l+1],mltargets[l])
 end
 project!(a,b,targets) = @vecloop a[Ii] += project(Ii,b) over Ii ∈ targets

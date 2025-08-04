@@ -25,18 +25,8 @@ end
 shifted(T::CartesianIndex{N},i) where N = SVector{N,Float32}(ntuple(j-> j==i ? (T.I[i]==1 ? 0.5 : -0.5) : 0,N))
 
 # Interaction on targets
-@inline _interaction!(ω,lT) = ((l,T) = lT; ω[l][T] = interaction(ω[l],T,l,length(ω)))
-interaction!(ω,flat_targets) = @vecloop _interaction!(ω,lT) over lT ∈ flat_targets
+interaction!(ml,flat_targets) = @vecloop _interaction!(ml,lT) over lT ∈ flat_targets
+@inline _interaction!(ml,lT) = ((l,T) = lT; ml[l][T] = interaction(ml[l],T,l,length(ml)))
 
 # Biot-Savart BC using FMM
-function fmmBC!(u,U,ω,targets,flat_targets)
-    interaction!(ω,flat_targets)
-    project!(ω,targets)
-    @vecloop set_velo!(u,U,ω,Ii,fmm) over Ii ∈ targets[1]
-end
-function fmmBC_r!(r,u,U,ω,tar,ftar)
-    interaction!(ω,ftar)
-    project!(ω,tar)
-    @vecloop velo_resid!(r,u,U,ω,Ii,fmm) over Ii ∈ tar[1]
-end
-@inline fmm(ml,Ii) = ml[1][Ii]+project(Ii,ml[2])
+fmmBC!(ml,targets,flat_targets) = (interaction!(ml,flat_targets);project!(ml,targets))
