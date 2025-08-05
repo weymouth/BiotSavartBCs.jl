@@ -20,7 +20,7 @@ export biot_mom_step!
 
 Constructor for a WaterLily.Simulation that uses the Biot-Savart boundary conditions:
     - fmm: Use the Fast Multi-level Method for the Biot-Savart integral (`fmm=true` default`),
-           or use the tree-sum method (`fmm=false`). 
+           or use the tree-sum method (`fmm=false`).
 
 Note that WaterLily.Simulation inputs which set boundary conditions (`exitBC`,`per`) are currently ignored.
 See: `Using Biot-Savart boundary conditions for unbounded external flow on Eulerian meshes, https://arxiv.org/abs/2404.09034`
@@ -39,7 +39,7 @@ mutable struct BiotSimulation <: AbstractSimulation
         # WaterLily simulation
         sim = Simulation(args...; mem, kwargs...)
         # MultiLevel vorticity array (top level points to sim.flow.f)
-        ω = MLArray(sim.flow.f) 
+        ω = MLArray(sim.flow.f)
         # domain boundary target index arrays
         tar = mem.(collect_targets(ω,nonbiotfaces)); ftar = flatten_targets(tar)
         # holder array for old pressure values
