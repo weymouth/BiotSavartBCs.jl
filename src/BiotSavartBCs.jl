@@ -34,7 +34,6 @@ mutable struct BiotSimulation <: AbstractSimulation
     ftar :: AbstractVector
     x₀   :: AbstractArray
     fmm  :: Bool
-    nonbiotfaces :: NTuple
     function BiotSimulation(args...; nonbiotfaces=(),  fmm=true, mem = Array, kwargs...)
         # WaterLily simulation
         sim = Simulation(args...; mem, kwargs...)
