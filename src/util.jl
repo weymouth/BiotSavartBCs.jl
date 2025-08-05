@@ -37,7 +37,7 @@ function MLArray(u)
         N = @. 1+N÷2; R = inside(N)
         close(I,R) == R && break
         push!(levels,N)
-        any(N .%2 .≠0) && break 
+        any(N .%2 .≠0) && break
     end
     zeros_like_u(N,n) = (y = similar(u,N...,n); fill!(y,0); y)
     return (u,map(N->zeros_like_u(N,n),levels)...)
