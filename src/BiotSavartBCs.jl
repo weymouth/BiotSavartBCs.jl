@@ -3,7 +3,7 @@ module BiotSavartBCs
 using WaterLily
 
 include("util.jl")
-export MLArray,collect_targets,flatten_targets
+export MLArray,collect_targets,flatten_targets,image
 
 include("fmm.jl")
 

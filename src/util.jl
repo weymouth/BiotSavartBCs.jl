@@ -68,6 +68,13 @@ faces(dims::NTuple{N},off) where N = flatmap(i->flatmap(s->slice(dims,i,s), ((-i
 collect_targets(ω,off=()) = map(ωᵢ->collect(faces(size(ωᵢ),off)),ω)
 flatten_targets(targets) = mapreduce(((level,targets),)->map(T->(level,T),targets),vcat,enumerate(targets))
 
+# generates the image of target T in the direction dir
+@inline function image(T::CartesianIndex,dims,face=2)
+    i = abs(face)
+    d = face>0 ? 2dims[i]-2T.I[i]-1 : 3-2T.I[i]
+    return T+d*WaterLily.δ(i,T), T.I[end]==i ? -1 : 1
+end
+
 # Vector MLArray projection on targets
 project!(ml::Tuple,mltargets::Tuple) = for l ∈ reverse(1:lastindex(ml)-1)
     project!(ml[l],ml[l+1],mltargets[l])
