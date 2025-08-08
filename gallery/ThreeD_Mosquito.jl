@@ -16,7 +16,7 @@ import BiotSavartBCs: interaction,_interaction!
     n = length(ml) # total levels
     ω = ml[l]      # vorticity sources
 
-    T⁺,sgn = image(T,size(ω),2) # image target & sign
+    T⁺,sgn = image(T,size(ω),-2) # image target & sign
     ml[l][T] = interaction(ω,T,l,n)+sgn*interaction(ω,T⁺,l,n)
 end
 
@@ -45,12 +45,12 @@ function Dickinson(L=64;U=1,Re=5e2,ε=0.5f0,thk=2ε+√3,AR=2,mem=Array,T=Float3
     upper_lower = AutoBody((x,t)->(abs(x[3])-thk/2.f0), map)
     body = ellipsoid ∩ upper_lower # intersection of sets
 
-    # Return initialized simulation
-    return BiotSimulation((3L,2L,3L),(0,0,0),L;ν=U*L/Re,U,body,mem,T,nonbiotfaces=(2,))
+    # Return initialized simulation, the y=0 plane is the symmetry plane
+    return BiotSimulation((3L,2L,3L),(0,0,0),L;ν=U*L/Re,U,body,mem,T,nonbiotfaces=(-2,))
 end
 
 # make a simulation
-sim = Dickinson(128;mem=CuArray,T=Float32)
+sim = Dickinson(32;mem=CuArray,T=Float32)
 
 # make a vtk writer
 custom_attrib = Dict("u"=>vtk_velocity, "p"=>vtk_pressure, "d"=>vtk_body, "λ2"=>vtk_lambda)
