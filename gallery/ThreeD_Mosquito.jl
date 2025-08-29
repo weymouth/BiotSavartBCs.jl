@@ -10,14 +10,10 @@ vtk_lambda(a::AbstractSimulation) = (@inside a.flow.σ[I] = WaterLily.λ₂(I, a
 WaterLily.CFL(a::Flow) = WaterLily.CFL(a;Δt_max=0.5)
 
 # overwrite to apply symmetric BiotBCs
-import BiotSavartBCs: interaction,_interaction!
-@inline function _interaction!(ml,lT)
-    (l,T) = lT     # level & target
-    n = length(ml) # total levels
-    ω = ml[l]      # vorticity sources
-
+import BiotSavartBCs: interaction,image,symmetry
+@inline function symmetry(ω,T,args...)
     T⁺,sgn = image(T,size(ω),-2) # image target & sign
-    ml[l][T] = interaction(ω,T,l,n)+sgn*interaction(ω,T⁺,l,n)
+    return interaction(ω,T,args...)+sgn*interaction(ω,T⁺,args...)
 end
 
 # make simulation following Dickinson's setup
