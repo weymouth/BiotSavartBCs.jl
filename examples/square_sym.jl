@@ -1,8 +1,7 @@
 using WaterLily,StaticArrays,BiotSavartBCs
 function sym_square(N;Re=5e2,mem=Array,U=1,T=Float32,thk=2,L=T(N/2))
-    body = AutoBody() do xyz,t
-        x,y,z = xyz - SA[L,0,0]
-        √(x^2+(y-min(y,L-thk))^2+(z-min(z,L-thk))^2)-thk
+    body = AutoBody() do (x,y,z),t
+        hypot(x-L,y-min(y,L-thk),z-min(z,L-thk))-thk
     end
     BiotSimulation((2N,N,N), (U,0,0),L;ν=U*2L/Re,body,mem,T,nonbiotfaces=(-2,-3))
 end

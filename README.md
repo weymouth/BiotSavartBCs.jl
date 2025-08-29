@@ -38,9 +38,8 @@ The resulting simulation update is very fast, especially with large 3D grids on 
 You can turn off the Biot-Savart update to a domain face by passing the face index (-3 is the negative z domainface, 2 is the positive y face, etc) as the optional `nonbiotfaces=(face_a,...)` keyword argument. In this case, the normal velocity at this face remains zero. Using this we can, for example, model a square plate abutting two slip-walls using:
 ```julia
 function sym_square(N;Re=5e2,mem=Array,U=1,T=Float32,thk=2,L=T(N/2))
-    body = AutoBody() do xyz,t
-        x,y,z = xyz
-        √((x-L)^2+(y-min(y,L-thk))^2+(z-min(z,L-thk))^2)-thk
+    body = AutoBody() do (x,y,z),t
+        hypot(x-L,y-min(y,L-thk),z-min(z,L-thk))-thk
     end
     BiotSimulation((2N,N,N), (U,0,0),L;ν=U*2L/Re,body,mem,T,nonbiotfaces=(-2,-3))
 end
