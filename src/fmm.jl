@@ -26,7 +26,8 @@ shifted(T::CartesianIndex{N},i) where N = SVector{N,Float32}(ntuple(j-> j==i ? (
 
 # Interaction on targets
 interaction!(ml,flat_targets) = @vecloop _interaction!(ml,lT) over lT ∈ flat_targets
-@inline _interaction!(ml,lT) = ((l,T) = lT; ml[l][T] = interaction(ml[l],T,l,length(ml)))
+@inline _interaction!(ml,lT) = ((l,T) = lT; ml[l][T] = symmetry(ml[l],T,l,length(ml)))
+@inline symmetry(ω,T,args...) = interaction(ω,T,args...) # default is no applied symmetry
 
 # Biot-Savart BC using FMM
 fmmBC!(ml,targets,flat_targets) = (interaction!(ml,flat_targets);project!(ml,targets))
