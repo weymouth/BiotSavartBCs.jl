@@ -21,22 +21,30 @@ end
 slice_u(N::NTuple{n},i,j,s) where n = CartesianIndices(ntuple(k-> k==i ? (s:s) : k==j ? (2:N[k]) : (2:N[k]-1),n))
 
 # Biot-Savart BCs
-biotBC!(u,U,ω,targets,flat_targets;fmm=true) = fmm ? fmmBC!(u,U,ω,targets,flat_targets) : treeBC!(u,U,ω,targets[1])
-Base.@propagate_inbounds @fastmath function set_velo!(u,U,ω,Ii,fnc)
-    i,I = last(Ii),front(Ii); lower = I.I[i]==1 
-    u[I+(lower ? δ(i,I) : zero(I)),i] = U[i]+fnc(ω,Ii)
+function biotBC!(u,U,ml,targets,flat_targets;fmm=true)
+    fmm ? fmmBC!(ml,targets,flat_targets) : treeBC!(ml,targets[1]) # Fill ml[targets]=uᵥ
+    @vecloop _biotBC!(u,U,ml[1],Ii) over Ii ∈ targets[1]           # Set u = uᵥ+U
+end
+@inline function _biotBC!(u,U,uᵥ,Ii)
+    i,I = last(Ii),front(Ii); lower = I.I[i]==1
+    u[I+(lower ? δ(i,I) : zero(I)),i] = U[i]+uᵥ[Ii]
 end
 
 using Atomix
-_biotBC_r!(r,u,U,ω,targets,flat_targets,fmm) = fmm ? fmmBC_r!(r,u,U,ω,targets,flat_targets) : treeBC_r!(r,u,U,ω,targets[1])
-biotBC_r!(r,u,U,ω,targets,flat_targets;fmm=true) = (_biotBC_r!(r,u,U,ω,targets,flat_targets,fmm); fix_resid!(r,u,targets[1]))
-Base.@propagate_inbounds @fastmath function velo_resid!(r,u,U,ω,Ii,fnc)
+# Biot-Savart BCs + residual update
+function biotBC_r!(r,u,U,ml,targets,flat_targets;fmm=true)
+    fmm ? fmmBC!(ml,targets,flat_targets) : treeBC!(ml,targets[1]) # Fill ml[targets]=uᵥ
+    @vecloop _biotBC_r!(r,u,U,ml[1],Ii) over Ii ∈ targets[1]       # Update the u,r
+    fix_resid!(r,u,targets[1])                                     # Fix u,r
+end
+@inline function _biotBC_r!(r,u,U,uᵥ,Ii)
     I,i = front(Ii),last(Ii); lower = I.I[i]==1
-    uₙ = U[i]+fnc(ω,Ii)
+    uₙ = U[i]+uᵥ[Ii]
     uI = lower ? Ii+δ(i,Ii) : Ii; uₙ⁰ = u[uI]; u[uI] = uₙ
     Atomix.@atomic r[I+(lower ? δ(i,I) : -δ(i,I))] += (uₙ-uₙ⁰)*(lower ? -1 : 1)
 end
 
+# Correct the global residual s.t. sum(r)=0
 fix_resid!(r,u,targets,fix=sum(r)/length(targets)) = @vecloop _fix_resid!(r,u,fix,Ii) over Ii ∈ targets
 @inline function _fix_resid!(r,u,fix,Ii)
     I,i = front(Ii),last(Ii); lower = I.I[i]==1

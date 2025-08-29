@@ -28,14 +28,41 @@ There are numerous examples in the `examples` folder of this repository that sho
 ### Method
 
 This package takes a practical approach to avoid the two fundamental issues with applying the Biot-Savart equation to set the boundary conditions of a projection-based Navier-Stokes solver: 
- 1. A naive weighted sum over the $N_s$ vorticity sources at every cell for all $N_t$ targets at the domain cell faces would make the boundary condition update take $O(N_s N_t)$ operations, making it *orders of magnitude slower* than the rest of the solver. We accelerate the BC update by clustering the vorticity sources using a tree method (oct-tree in 3D and quad-tree in 2D). This reuses the pooling method in WaterLily's Multigrid pressure solver and reduces the cost to $O(\log(N_s) N_t)$. We can further accelerate the BC update by also clustering the target faces - making this an $O(N_t)$ Fast Multi*grid* Method - a variant of the classic [Fast Multipole Method](https://en.wikipedia.org/wiki/Fast_multipole_method). Finally, we parallelize over all the targets using [KernelAbstractions.jl](https://github.com/JuliaGPU/KernelAbstractions.jl) which works on the GPU or multi-threaded CPU.
+ 1. A naive weighted sum over the $N_s$ vorticity sources at every cell for all $N_t$ targets at the domain cell faces would make the boundary condition update take $O(N_s N_t)$ operations, making it *orders of magnitude slower* than the rest of the solver. We accelerate the BC update by clustering the vorticity sources using a tree method (oct-tree in 3D and quad-tree in 2D). This reuses the pooling method in WaterLily's Multigrid pressure solver and reduces the cost to $O(\log(N_s) N_t)$. We can further accelerate the BC update by also clustering the target faces - making this an $O(N_t)$ Fast Multi*level* Method FMℓM - a variant of the classic [Fast Multipole Method](https://en.wikipedia.org/wiki/Fast_multipole_method). Finally, we parallelize over all the targets using [KernelAbstractions.jl](https://github.com/JuliaGPU/KernelAbstractions.jl) which works on the GPU or multi-threaded CPU.
  2. The pressure projection step depends sensitively on the boundaries conditions, but these *cannot be set* since the unknown pressure generates vorticity on immersed bodies. We solve this problem using a matrix partition method, similar to the approach used for partitioned Fluid-Structure-Interaction (FSI) methods. In practise we see the Multigrid pressure solver actually converges *faster* with `BiotSavartBcs` than with reflection BCs.
 
 The resulting simulation update is very fast, especially with large 3D grids on the GPU - exactly where the ability to use a snug domain is the most important. See the paper for detailed methods, examples, and computational benchmarks. 
 
-### Limitations
+### Mixed domain boundary conditions
 
-Currently, a `BiotSimulation` applies the BiotSavartBC to **all** the domain boundaries - ignoring any request for symmetry or periodic boundary conditions. It should be fairly straightforward to implement the interaction of these boundary conditions and we would be happy to help with cumminity development in this direction.
+You can turn off the Biot-Savart update to a domain face by passing the face index to the optional `nonbiotfaces` keyword argument (-3 is the negative z domain face, 2 is the positive y face, etc). In this case, the normal velocity at this face remains zero. Using this we can, for example, model a square plate abutting two slip-walls using:
+```julia
+function sym_square(N;Re=5e2,mem=Array,U=1,T=Float32,thk=2,L=T(N/2))
+    body = AutoBody() do (x,y,z),t
+        hypot(x-L,y-min(y,L-thk),z-min(z,L-thk))-thk
+    end
+    BiotSimulation((2N,N,N), (U,0,0),L;ν=U*2L/Re,body,mem,T,nonbiotfaces=(-2,-3))
+end
+sim_slip_walls = sym_square(96,mem=CuArray);
+sim_step!(sim_slip_walls,2,remeasure=false) # or whatever
+```
+
+If we instead want to model a square plate (of twice the width) in an unbounded domain using a symmetric flow condition on the y & z planes, then we _also_ need to add the influence of the images of the vortices to the Biot-Savart boundaries. This is done by overwritting the `symmetry` function before running the simulation:
+```julia
+import BiotSavartBCs: interaction,symmetry,image
+@inline function symmetry(ω,T,args...) # overwrite to add image influences
+    T₂,sgn₂ = image(T,size(ω),-2)  # image target and sign in y
+    T₃,sgn₃ = image(T,size(ω),-3)  # image target and sign in z
+    T₂₃,_   = image(T₃,size(ω),-2) # image of image!
+    # Add up the four contributions
+    return interaction(ω,T,args...)+sgn₃*interaction(ω,T₃,args...)+
+     sgn₂*(interaction(ω,T₂,args...)+sgn₃*interaction(ω,T₂₃,args...))
+end
+sim_sym_walls = sym_square(96,mem=CuArray); # no difference!
+sim_step!(sim_sym_walls,2,remeasure=false) # BiotBCs now see reflected domain
+```
+
+There is currently no way to implement mixed Biot-Savart & periodic boundary conditions and passing a `BiotSimulation(args...;perdir::NTuple)` will be ignored.
 
 ### Gallery
 

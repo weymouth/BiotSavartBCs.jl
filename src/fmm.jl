@@ -1,7 +1,7 @@
 # inverse distance weighted source
 using StaticArrays
 @inline weighted(r::SVector{3,Float32},S::CartesianIndex{3},i,ω) = permute((j,k)->@inbounds(ω[S,j]*r[k]),i)/√(r'*r)^3/π/4
-@inline weighted(r::SVector{2,Float32},S::CartesianIndex{2},i,ω) = (i-i%2-1)*@inbounds(ω[S,1]*r[i%2+1])/(r'*r)/π/2
+@inline weighted(r::SVector{2,Float32},S::CartesianIndex{2},i,ω) = (-1)^i*@inbounds(ω[S,1]*r[i%2+1])/(r'*r)/π/2
 
 # Sum over sources at one interaction level
 Base.@propagate_inbounds @fastmath function interaction(ω,Ti::CartesianIndex{Np1},l,depth) where Np1
@@ -25,18 +25,9 @@ end
 shifted(T::CartesianIndex{N},i) where N = SVector{N,Float32}(ntuple(j-> j==i ? (T.I[i]==1 ? 0.5 : -0.5) : 0,N))
 
 # Interaction on targets
-@inline _interaction!(ω,lT) = ((l,T) = lT; ω[l][T] = interaction(ω[l],T,l,length(ω)))
-interaction!(ω,flat_targets) = @vecloop _interaction!(ω,lT) over lT ∈ flat_targets
+interaction!(ml,flat_targets) = @vecloop _interaction!(ml,lT) over lT ∈ flat_targets
+@inline _interaction!(ml,lT) = ((l,T) = lT; ml[l][T] = symmetry(ml[l],T,l,length(ml)))
+@inline symmetry(ω,T,args...) = interaction(ω,T,args...) # default is no applied symmetry
 
 # Biot-Savart BC using FMM
-function fmmBC!(u,U,ω,targets,flat_targets)
-    interaction!(ω,flat_targets)
-    project!(ω,targets)
-    @vecloop set_velo!(u,U,ω,Ii,fmm) over Ii ∈ targets[1]
-end
-function fmmBC_r!(r,u,U,ω,tar,ftar)
-    interaction!(ω,ftar)
-    project!(ω,tar)
-    @vecloop velo_resid!(r,u,U,ω,Ii,fmm) over Ii ∈ tar[1]
-end
-@inline fmm(ml,Ii) = ml[1][Ii]+project(Ii,ml[2])
+fmmBC!(ml,targets,flat_targets) = (interaction!(ml,flat_targets);project!(ml,targets))

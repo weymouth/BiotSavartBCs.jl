@@ -20,6 +20,10 @@ using BiotSavartBCs: @vecloop,inside_u,restrict!,project!,down,front,step
 
     tar = collect_targets(ml)
     @test length(tar[1]) == 4length(tar[2]) == 16length(tar[3])
+    tar2 = collect_targets(ml,(-1,-2))
+    @test first(tar[3]) ∉ tar2[3]
+    @test length(tar2[3])+2*2*4 == length(tar[3])
+
     Ti = last(tar[2])
     T,i = front(Ti),last(Ti)
     @test CartesianIndex(down(T),i)==last(tar[3])

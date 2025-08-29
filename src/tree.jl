@@ -30,5 +30,4 @@ Base.@propagate_inbounds @fastmath function tree(ml,Ti::CartesianIndex{Np1}) whe
 end
 
 # Biot-Savart BC using the tree sum
-treeBC!(u,U,ml,targets) = @vecloop set_velo!(u,U,ml,Ii,tree) over Ii ∈ targets
-treeBC_r!(r,u,U,ml,targets) = @vecloop velo_resid!(r,u,U,ml,Ii,tree) over Ii ∈ targets
+treeBC!(ml,targets) = @vecloop ml[1][Ii]=tree(ml,Ii) over Ii ∈ targets

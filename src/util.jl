@@ -37,6 +37,7 @@ function MLArray(u)
         N = @. 1+N÷2; R = inside(N)
         close(I,R) == R && break
         push!(levels,N)
+        any(N .%2 .≠0) && break
     end
     zeros_like_u(N,n) = (y = similar(u,N...,n); fill!(y,0); y)
     return (u,map(N->zeros_like_u(N,n),levels)...)
@@ -63,12 +64,19 @@ end
 # Collect "targets" on the faces of a MLArray
 using Base.Iterators
 slice(dims::NTuple{N},i,s) where N = CartesianIndices((ntuple( k-> k==i ? (s:s) : (2:dims[k]-1), N-1)...,(i:i)))
-faces(dims::NTuple{N}) where N = flatmap(i->flatmap(s->slice(dims,i,s),(1,dims[i])),1:N-1)
-collect_targets(ω) = map(ωᵢ->collect(faces(size(ωᵢ))),ω)
+faces(dims::NTuple{N},off) where N = flatmap(i->flatmap(s->slice(dims,i,s), ((-i∈off ? () : (1,))...,(i∈off ? () : (dims[i],))...)),1:N-1)
+collect_targets(ω,off=()) = map(ωᵢ->collect(faces(size(ωᵢ),off)),ω)
 flatten_targets(targets) = mapreduce(((level,targets),)->map(T->(level,T),targets),vcat,enumerate(targets))
 
+# generates the image of target T in the direction dir
+@inline function image(T::CartesianIndex,dims,face=2)
+    i = abs(face)
+    d = face>0 ? 2dims[i]-2T.I[i]-1 : 3-2T.I[i]
+    return T+d*WaterLily.δ(i,T), T.I[end]==i ? -1 : 1
+end
+
 # Vector MLArray projection on targets
-project!(ml::Tuple,mltargets::Tuple) = for l ∈ reverse(2:lastindex(ml)-1)
+project!(ml::Tuple,mltargets::Tuple) = for l ∈ reverse(1:lastindex(ml)-1)
     project!(ml[l],ml[l+1],mltargets[l])
 end
 project!(a,b,targets) = @vecloop a[Ii] += project(Ii,b) over Ii ∈ targets
