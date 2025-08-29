@@ -33,9 +33,37 @@ This package takes a practical approach to avoid the two fundamental issues with
 
 The resulting simulation update is very fast, especially with large 3D grids on the GPU - exactly where the ability to use a snug domain is the most important. See the paper for detailed methods, examples, and computational benchmarks. 
 
-### Limitations
+### Mixed domain boundary conditions
 
-Currently, a `BiotSimulation` applies the BiotSavartBC to **all** the domain boundaries - ignoring any request for symmetry or periodic boundary conditions. It should be fairly straightforward to implement the interaction of these boundary conditions and we would be happy to help with cumminity development in this direction.
+You can turn off the Biot-Savart update to a domain face by passing the face index (-3 is the negative z domainface, 2 is the positive y face, etc) as the optional `nonbiotfaces=(face_a,...)` keyword argument. In this case, the normal velocity at this face remains zero. Using this we can, for example, model a square plate abutting two slip-walls using:
+```julia
+function sym_square(N;Re=5e2,mem=Array,U=1,T=Float32,thk=2,L=T(N/2))
+    body = AutoBody() do xyz,t
+        x,y,z = xyz - SA[L,0,0]
+        √(x^2+(y-min(y,L-thk))^2+(z-min(z,L-thk))^2)-thk
+    end
+    BiotSimulation((2N,N,N), (U,0,0),L;ν=U*2L/Re,body,mem,T,nonbiotfaces=(-2,-3))
+end
+sim_slip_walls = sym_square(96,mem=CuArray);
+sim_step!(sim_slip_walls,2,remeasure=false) # or whatever
+```
+
+If we instead want to model a square plate (of twice the width) in an unbounded domain using a symmetric flow condition on the y & z planes, then we _also_ need to add the influence of the images of the vortices to the Biot-Savart boundaries. This is done by overwritting the `symmetry` function before running the simulation:
+```julia
+import BiotSavartBCs: interaction,symmetry,image
+@inline function symmetry(ω,T,args...) # overwrite to add image influences
+    T₂,sgn₂ = image(T,size(ω),-2)  # image target and sign in y
+    T₃,sgn₃ = image(T,size(ω),-3)  # image target and sign in z
+    T₂₃,_   = image(T₃,size(ω),-2) # image of image!
+    # Add up the four contributions
+    return interaction(ω,T,args...)+sgn₃*interaction(ω,T₃,args...)+
+     sgn₂*(interaction(ω,T₂,args...)+sgn₃*interaction(ω,T₂₃,args...))
+end
+sim_sym_walls = sym_square(96,mem=CuArray); # no difference!
+sim_step!(sim_sym_walls,2,remeasure=false) # BiotBCs now see reflected domain
+```
+
+There is currently no way to implement mixed Biot-Savart & periodic boundary conditions and passing a `BiotSimulation(args...;perdir::NTuple)` will be ignored.
 
 ### Gallery
 
