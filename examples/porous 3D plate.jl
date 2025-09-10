@@ -23,42 +23,36 @@ import BiotSavartBCs: interaction,image,symmetry
 end
 
 # 90% solid
-using JLD2
-# sim = porous(96,mem=CuArray,α=0.9);sim_step!(sim)
-# sim_step!(sim,30,remeasure=false)
-# mean = MeanFlow(sim.flow)
-# while sim_time(sim)<60
-#     sim_step!(sim)
-#     WaterLily.update!(mean,sim.flow)
-# end
-# save!("porous2_90_96_60.jld2",sim)
-# save!("porous2_90_96_mean30_60.jld2",mean)
-
-sim = porous(96,mem=CuArray,α=0.9);
-load!(sim,fname="porous3d_90_96_60.jld2")
+using JLD2,GLMakie
+sim = porous(32,mem=CuArray,α=0.9);
 mean = MeanFlow(sim.flow);
-load!(mean,fname="porous3d_90_96_mean30_60.jld2")
+try
+    load!(sim,fname="porous3d_90_32_30.jld2")
+    load!(sim,fname="porous3d_90_32_60.jld2")
+    load!(mean,fname="porous3d_90_32_mean30_60.jld2")
+catch
+    viz!(sim,duration=30,video="porous3d_90_32.mp4",remeasure=false)
+    save!("porous3d_90_32_30.jld2",sim)
+    while sim_time(sim)<60
+        sim_step!(sim,sim_time(sim)+0.1,remeasure=false)
+        WaterLily.update!(mean,sim.flow)
+        @show sim_time(sim)
+    end
+    save!("porous3d_90_32_60.jld2",sim)
+    save!("porous3d_90_32_mean30_60.jld2",mean)
+end
 
-using GLMakie
 viz!(sim)
 viz!(sim,mean.P,cut=(0,0,96÷8*3),d=2,clims=(-0.5,0.5),levels=11)
-save("porous3d_90_96_meanPo.png", current_figure())
+save("porous3d_90_32_meanPo.png", current_figure())
 viz!(sim,mean.P,cut=(0,0,96÷2),d=2,clims=(-0.5,0.5),levels=11)
 save("porous3d_90_96_meanPc.png", current_figure())
-function f(arr, sim)
+function mean_ω_mag(arr, sim)
     ω = sim.flow.σ
     @inside ω[I] = WaterLily.ω_mag(I,mean.U)
     copyto!(arr, ω[inside(ω)]) # copy to CPU
 end
-viz!(sim;f,cut=(0,0,96÷8*3),d=2,clims=(-0.5,0.5))
-save("porous3d_90_96_meanωo.png", current_figure())
-viz!(sim;f,cut=(0,0,96÷2),d=2,clims=(-0.5,0.5))
-save("porous3d_90_96_meanωc.png", current_figure())
-
-function update_mean_also(arr, sim)
-    WaterLily.update!(mean,sim.flow)
-    ω = sim.flow.σ
-    @inside ω[I] = WaterLily.ω_mag(I,sim.flow.u)
-    copyto!(arr, ω[inside(ω)]) # copy to CPU
-end
-viz!(sim,f=update_mean_also,duration=90,video="porous3D.mp4",remeasure=false)
+viz!(sim;f=mean_ω_mag,cut=(0,0,96÷8*3),d=2,clims=(-0.5,0.5))
+save("porous3d_90_32_meanωo.png", current_figure())
+viz!(sim;f=mean_ω_mag,cut=(0,0,96÷2),d=2,clims=(-0.5,0.5))
+save("porous3d_90_32_meanωc.png", current_figure())
