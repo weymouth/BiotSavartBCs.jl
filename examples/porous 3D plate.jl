@@ -24,35 +24,42 @@ end
 
 # 90% solid
 using JLD2,GLMakie
-sim = porous(32,mem=CuArray,α=0.9);
+L,α = 96,90
+sim = porous(L,mem=CuArray,α=α/100);
 mean = MeanFlow(sim.flow);
 try
-    load!(sim,fname="porous3d_90_32_30.jld2")
-    load!(sim,fname="porous3d_90_32_60.jld2")
-    load!(mean,fname="porous3d_90_32_mean30_60.jld2")
+    load!(sim,fname="porous3d_$(α)_$(L)_30.jld2")
+    load!(sim,fname="porous3d_$(α)_$(L)_60.jld2")
+    load!(mean,fname="porous3d_$(α)_$(L)_mean30_60.jld2")
 catch
-    viz!(sim,duration=30,video="porous3d_90_32.mp4",remeasure=false)
-    save!("porous3d_90_32_30.jld2",sim)
+    viz!(sim,duration=30,video="porous3d_$(α)_$(L).mp4",remeasure=false)
+    save!("porous3d_90_$L_30.jld2",sim)
     while sim_time(sim)<60
         sim_step!(sim,sim_time(sim)+0.1,remeasure=false)
         WaterLily.update!(mean,sim.flow)
         @show sim_time(sim)
     end
-    save!("porous3d_90_32_60.jld2",sim)
-    save!("porous3d_90_32_mean30_60.jld2",mean)
+    save!("porous3d_$(α)_$(L)_60.jld2",sim)
+    save!("porous3d_$(α)_$(L)_mean30_60.jld2",mean)
 end
 
-viz!(sim)
+fig,ax = viz!(sim)  # move around to a good view
+hidespines!(ax)
+hidedecorations!(ax)
+viz!(sim;fig,ax,colorrange=(0.05,0.85)) # change range to see more detail
+save("porous3d_$(α)_$(L)_default.png", current_figure())
+viz!(sim;duration=1,step=0.01,fig,ax,video="porous3d_$(α)_$(L)_default.mp4",colorrange=(0.05,0.85))
+
 viz!(sim,mean.P,cut=(0,0,96÷8*3),d=2,clims=(-0.5,0.5),levels=11)
-save("porous3d_90_32_meanPo.png", current_figure())
+save("porous3d_$(α)_$(L)_meanPo.png", current_figure())
 viz!(sim,mean.P,cut=(0,0,96÷2),d=2,clims=(-0.5,0.5),levels=11)
-save("porous3d_90_96_meanPc.png", current_figure())
+save("porous3d_$(α)_$(L)_meanPc.png", current_figure())
 function mean_ω_mag(arr, sim)
     ω = sim.flow.σ
     @inside ω[I] = WaterLily.ω_mag(I,mean.U)
     copyto!(arr, ω[inside(ω)]) # copy to CPU
 end
 viz!(sim;f=mean_ω_mag,cut=(0,0,96÷8*3),d=2,clims=(-0.5,0.5))
-save("porous3d_90_32_meanωo.png", current_figure())
+save("porous3d_$(α)_$(L)_meanωo.png", current_figure())
 viz!(sim;f=mean_ω_mag,cut=(0,0,96÷2),d=2,clims=(-0.5,0.5))
-save("porous3d_90_32_meanωc.png", current_figure())
+save("porous3d_$(α)_$(L)_meanωc.png", current_figure())
