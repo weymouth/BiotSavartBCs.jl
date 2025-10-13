@@ -1,4 +1,4 @@
-using WaterLily,BiotSavartBCs,CUDA,StaticArrays,JLD2
+using WaterLily,BiotSavartBCs,CUDA,StaticArrays,JLD2,TypedTables
 
 function porous(l;g=l/4,α=0.9,θ=π/6,Re=20e3,T=Float32,mem=Array)
     # mapping
@@ -30,7 +30,7 @@ function porous_case(L,α;ramp=30,acc=60)
     hist = try
         load!(sim,fname="porous3d_$(α)_$(L)_$acc.jld2")
         load!(mean,fname="porous3d_$(α)_$(L)_mean$(ramp)_$acc.jld2")
-        load_object("porous3d_$(α)_$(L)_hist_$acc.jld2")
+        load_object("porous3d_$(α)_$(L)_histT_$acc.jld2")
     catch
         hist = map(0.1:0.1:acc) do t
             sim_step!(sim,t,remeasure=false)                   # update to time t
@@ -39,29 +39,51 @@ function porous_case(L,α;ramp=30,acc=60)
             t==ramp && (mean = MeanFlow(sim.flow))             # reset mean
             t>ramp && WaterLily.update!(mean,sim.flow)         # accumulate mean
             @show t
-            return (t,force[1],force[2],moment[3])           # record data
-        end |> stack
+            return (;t,Fx=force[1],Fy=force[2],Mz=moment[3])   # record data
+        end |> Table
         save!("porous3d_$(α)_$(L)_$acc.jld2",sim)
         save!("porous3d_$(α)_$(L)_mean$(ramp)_$acc.jld2",mean)
-        save_object("porous3d_$(α)_$(L)_hist_$acc.jld2",hist)
+        save_object("porous3d_$(α)_$(L)_histT_$acc.jld2",hist)
         hist
     end
     return sim,mean,hist
 end
 
-# Convergence study
-sim,mean,hist32 = porous_case(32,90);
-sim,mean,hist64 = porous_case(64,90);
-sim,mean,hist96 = porous_case(96,90,ramp=20,acc=50);
-sim,mean,hist128 = porous_case(96,90,ramp=12,acc=42);
+# # Convergence study
+# conv = Table(L=[32,64,96,128],ramp=[30,30,20,12])
+# # data = map(conv) do case
+# #     L,α,ramp,acc=case.L,90,case.ramp,case.ramp+30
+# #     sim,mean,hist = porous_case(L,α;ramp,acc) # run/grab everything
+# # end;
 
+# # Plot moment time traces
+# using Plots
+# plot(xlabel="Time",ylabel="moment");
+# data = map(conv) do case
+#     L,α,ramp,acc=case.L,90,case.ramp,case.ramp+30
+#     hist = load_object("porous3d_$(α)_$(L)_histT_$acc.jld2") # just hist
+#     plot!(hist.t,hist.Mz,label=2L)
+#     # save time-averages after ramp
+#     mean(var) = sum(var[30 .<= hist.t .<=42])/length(var[30 .<= hist.t .<=42])
+#     (case...,Fx=mean(hist.Fx),Fy=mean(hist.Fy),Mz=mean(hist.Mz))
+# end
+# plot!(legend_title="plate resolution")
+# savefig("porous3d_90_moment.png")
+
+# Porousity study
+for α in 100 .- [0,4,8,12,20]
+    @show α
+    sim,mean,hist = porous_case(96,α)
+end
 using Plots
-plot(sim.pois.n)
-(plot(hist32[1,:],hist32[4,:],xlabel="Time",ylabel="moment",label="L=32");
-plot!(hist64[1,:],hist64[4,:],label="L=64");
-plot!(hist96[1,:],hist96[4,:],label="L=96");
-plot!(hist128[1,:],hist128[4,:],label="L=128");)
-savefig("porous3d_90_moment.png")
+cases = Table(α = 100 .- [0,4,8,10,12,20],ramp=[30,30,30,20,30,30])
+plot(xlabel="Time",ylabel="moment");
+for case in cases
+    L,α,acc=96,case.α,case.ramp+30
+    hist = load_object("porous3d_$(α)_$(L)_histT_$acc.jld2") # just hist
+    plot!(hist.t,hist.Mz,label="$(100-α)%")
+end
+plot!(legend_title="pourosity")
 
 # # Visualization
 # fig,ax = viz!(sim)  # move around to a good view
