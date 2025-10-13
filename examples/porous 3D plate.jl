@@ -3,7 +3,7 @@ using WaterLily,BiotSavartBCs,CUDA,StaticArrays,JLD2,TypedTables
 function porous(l;g=l/4,α=0.9,θ=π/6,Re=20e3,T=Float32,mem=Array)
     # mapping
     g,α,θ,thk = T(g),T(α),T(θ),T(1+0.5√2)                       # fix the variable types
-    s,c = sincos(θ); R = g*√((1-α)/π); cen = SA{T}[1.5l,2l/3,0] # set geometric parameters
+    s,c = sincos(θ); R = g*√((1-α)/π); cen = SA{T}[1.5l,1.3l,0] # set geometric parameters
     map(xyz,t) = SA[s c 0; -c s 0; 0 0 1]*(xyz-cen)             # shift and rotate
 
     # signed distance functions
@@ -13,7 +13,7 @@ function porous(l;g=l/4,α=0.9,θ=π/6,Re=20e3,T=Float32,mem=Array)
     α<1 && (body -= AutoBody(pores,map))                    # perforate the plate
 
     # Simulation with Biot-Savart BCs (but free-slip in z)
-    BiotSimulation((5l,2l,l),(1,0,0),2l;ν=2l/Re,body,T,mem,nonbiotfaces=(-3,3)),cen
+    BiotSimulation((5l,3l,l),(1,0,0),2l;ν=2l/Re,body,T,mem,nonbiotfaces=(-3,3)),cen
 end
 
 import BiotSavartBCs: interaction,image,symmetry
@@ -24,7 +24,7 @@ import BiotSavartBCs: interaction,image,symmetry
 end
 
 # Read or simulate & write
-function porous_case(L,α;ramp=30,acc=60)
+function porous_case(L,α;ramp=20,acc=50)
     sim,x₀ = porous(L,mem=CuArray,α=α/100)
     mean = MeanFlow(sim.flow)
     hist = try
@@ -71,27 +71,23 @@ end
 # savefig("porous3d_90_moment.png")
 
 # Porousity study
-for α in 100 .- [0,4,8,12,20]
+using Plots
+plot(xlabel="Time",ylabel="moment");
+for α in 100 .- [0,4,8,10,12,20]
     @show α
     sim,mean,hist = porous_case(96,α)
-end
-using Plots
-cases = Table(α = 100 .- [0,4,8,10,12,20],ramp=[30,30,30,20,30,30])
-plot(xlabel="Time",ylabel="moment");
-for case in cases
-    L,α,acc=96,case.α,case.ramp+30
-    hist = load_object("porous3d_$(α)_$(L)_histT_$acc.jld2") # just hist
     plot!(hist.t,hist.Mz,label="$(100-α)%")
 end
 plot!(legend_title="pourosity")
 
 # # Visualization
-# fig,ax = viz!(sim)  # move around to a good view
+# using GLMakie 
+# sim,mean,hist = porous_case(32,96,ramp=1,acc=2); # 4% porous
+# fig,ax = viz!(sim,body=true)  # move around to a good view
 # hidespines!(ax)
 # hidedecorations!(ax)
 # viz!(sim;fig,ax,colorrange=(0.05,0.85)) # change range to see more detail
 # save("porous3d_$(α)_$(L)_default.png", current_figure())
-# viz!(sim;duration=1,step=0.01,fig,ax,video="porous3d_$(α)_$(L)_default.mp4",colorrange=(0.05,0.85))
 
 # viz!(sim,mean.P,cut=(0,0,96÷8*3),d=2,clims=(-0.5,0.5),levels=11)
 # save("porous3d_$(α)_$(L)_meanPo.png", current_figure())
