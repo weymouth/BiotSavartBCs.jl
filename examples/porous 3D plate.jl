@@ -99,24 +99,20 @@ savefig(plty,"porous3d_L$(L)_Fy.png")
 savefig(pltz,"porous3d_L$(L)_Mz.png")
 
 # # Visualization
-# using GLMakie 
-# sim,mean,hist = porous_case(32,96,ramp=1,acc=2); # 4% porous
-# fig,ax = viz!(sim,body=true)  # move around to a good view
-# hidespines!(ax)
-# hidedecorations!(ax)
-# viz!(sim;fig,ax,colorrange=(0.05,0.85)) # change range to see more detail
-# save("porous3d_$(α)_$(L)_default.png", current_figure())
+# using GLMakie
+# L,α = 256,0
+# sim,mean,hist = porous_case(L,100-α);
+# fig,ax = viz!(sim)  # move around to a good view
+# hidespines!(ax);hidedecorations!(ax);
+# viz!(sim;fig,ax,colorrange=(0.05,0.85)); # change range to see more detail
+# GLMakie.save("porous3d_$(α)_$(L)_instω.png", current_figure())
 
-# viz!(sim,mean.P,cut=(0,0,96÷8*3),d=2,clims=(-0.5,0.5),levels=11)
-# save("porous3d_$(α)_$(L)_meanPo.png", current_figure())
-# viz!(sim,mean.P,cut=(0,0,96÷2),d=2,clims=(-0.5,0.5),levels=11)
-# save("porous3d_$(α)_$(L)_meanPc.png", current_figure())
+# viz!(sim,mean.P,cut=(0,0,L÷8+1),d=2,clims=(-1,1),levels=11)
+# GLMakie.save("porous3d_$(α)_$(L)_meanPo.png", current_figure())
 # function mean_ω_mag(arr, sim)
 #     ω = sim.flow.σ
 #     @inside ω[I] = WaterLily.ω_mag(I,mean.U)
 #     copyto!(arr, ω[inside(ω)]) # copy to CPU
 # end
-# viz!(sim;f=mean_ω_mag,cut=(0,0,96÷8*3),d=2,clims=(-0.5,0.5))
+# viz!(sim;f=mean_ω_mag,cut=(0,0,L÷8+1),d=2,clims=(-0.5,0.5))
 # save("porous3d_$(α)_$(L)_meanωo.png", current_figure())
-# viz!(sim;f=mean_ω_mag,cut=(0,0,96÷2),d=2,clims=(-0.5,0.5))
-# save("porous3d_$(α)_$(L)_meanωc.png", current_figure())
