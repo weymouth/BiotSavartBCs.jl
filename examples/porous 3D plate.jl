@@ -1,21 +1,29 @@
 using WaterLily,BiotSavartBCs,CUDA,StaticArrays,JLD2,TypedTables
+WaterLily.CFL(a::Flow) = WaterLily.CFL(a;Δt_max=1)
 
-function porous(l;g=l/4,α=0.9,θ=π/6,Re=20e3,T=Float32,mem=Array)
-    # mapping
-    g,α,θ,thk = T(g),T(α),T(θ),T(1+0.5√2)                       # fix the variable types
-    s,c = sincos(θ); R = g*√((1-α)/π); cen = SA{T}[1.5l,1.3l,0] # set geometric parameters
-    map(xyz,t) = SA[s c 0; -c s 0; 0 0 1]*(xyz-cen)             # shift and rotate
+function porous(l;g=l/4,α=0.9,thk=1/11,θ=π/6,Re=20e3,U=1,T=Float32,mem=Array)
+    # define parameters
+    g,α,θ = T(g),T(α),T(θ)                                  # fix the variable types
+    s,c = sincos(θ); R = g*√((1-α)/π)                       # plate tangent & pore size
 
-    # signed distance functions
-    plate((x,y,z),t) = hypot(x,y-clamp(y,-l+thk,l-thk))-thk # plate in x,y (infinite in z)
+    center,corner = SA{T}[1.3l,1.3l,0],SA{T}[l*thk,l]       # plate center & size
+    @show g,R,corner
+
+    # define body
+    map(xyz,t) = SA[s c 0; -c s 0; 0 0 1]*(xyz-center)      # shift and rotate
+    function plate((x,y,z),t)                               # plate in x,y (infinite in z)
+        p = abs.(SA[x,y])-corner
+        √sum(abs2,max.(p,0))+min(maximum(p),0)
+    end
     body = AutoBody(plate,map)                              # make & position the plate
     pores((x,y,z),t) = hypot(abs(y)%g-g/2,z%g-g/2)-R        # y,z circles in mod-g coordinates
     α<1 && (body -= AutoBody(pores,map))                    # perforate the plate
 
     # Simulation with Biot-Savart BCs (but free-slip in z)
-    BiotSimulation((5l,3l,l),(1,0,0),2l;ν=2l/Re,body,T,mem,nonbiotfaces=(-3,3)),cen
+    Ut(i,x,t::T) where T = i==1 ? convert(T,min(t/(2l),U)) : zero(T) # velocity BC
+    BiotSimulation((4l,3l,l÷4),Ut,2l;U,ν=2l*U/Re,body,T,mem,nonbiotfaces=(-3,3)),center
 end
-
+# Add images
 import BiotSavartBCs: interaction,image,symmetry
 @inline function symmetry(ω,T,args...) # add (only two) symmetry images in z
     T₁,sgn₁ = image(T,size(ω),-3)
@@ -24,61 +32,71 @@ import BiotSavartBCs: interaction,image,symmetry
 end
 
 # Read or simulate & write
-function porous_case(L,α;ramp=20,acc=50)
+function porous_case(L,α;ramp=10,dt=0.01,duration=20)
     sim,x₀ = porous(L,mem=CuArray,α=α/100)
     mean = MeanFlow(sim.flow)
+    prefix = "porous3d_$(α)_$(L)_$duration"
     hist = try
-        load!(sim,fname="porous3d_$(α)_$(L)_$acc.jld2")
-        load!(mean,fname="porous3d_$(α)_$(L)_mean$(ramp)_$acc.jld2")
-        load_object("porous3d_$(α)_$(L)_histT_$acc.jld2")
+        load!(sim,mean,prefix)
     catch
-        hist = map(0.1:0.1:acc) do t
-            sim_step!(sim,t,remeasure=false)                   # update to time t
-            force = WaterLily.pressure_force(sim)/L^2          # compute force & moment
-            moment = WaterLily.pressure_moment(x₀,sim)/2L^3
-            t==ramp && (mean = MeanFlow(sim.flow))             # reset mean
-            t>ramp && WaterLily.update!(mean,sim.flow)         # accumulate mean
-            @show t
-            return (;t,Fx=force[1],Fy=force[2],Mz=moment[3])   # record data
-        end |> Table
-        save!("porous3d_$(α)_$(L)_$acc.jld2",sim)
-        save!("porous3d_$(α)_$(L)_mean$(ramp)_$acc.jld2",mean)
-        save_object("porous3d_$(α)_$(L)_histT_$acc.jld2",hist)
+        hist = record_hist_mean!(sim,x₀,mean;ramp,dt,duration)
+        save(prefix,sim,mean,hist)
         hist
     end
     return sim,mean,hist
 end
-
-# # Convergence study
-# conv = Table(L=[32,64,96,128],ramp=[30,30,20,12])
-# # data = map(conv) do case
-# #     L,α,ramp,acc=case.L,90,case.ramp,case.ramp+30
-# #     sim,mean,hist = porous_case(L,α;ramp,acc) # run/grab everything
-# # end;
-
-# # Plot moment time traces
-# using Plots
-# plot(xlabel="Time",ylabel="moment");
-# data = map(conv) do case
-#     L,α,ramp,acc=case.L,90,case.ramp,case.ramp+30
-#     hist = load_object("porous3d_$(α)_$(L)_histT_$acc.jld2") # just hist
-#     plot!(hist.t,hist.Mz,label=2L)
-#     # save time-averages after ramp
-#     mean(var) = sum(var[30 .<= hist.t .<=42])/length(var[30 .<= hist.t .<=42])
-#     (case...,Fx=mean(hist.Fx),Fy=mean(hist.Fy),Mz=mean(hist.Mz))
-# end
-# plot!(legend_title="plate resolution")
-# savefig("porous3d_90_moment.png")
-
-# Porousity study
-using Plots
-plot(xlabel="Time",ylabel="moment");
-for α in 100 .- [0,4,8,10,12,20]
-    @show α
-    sim,mean,hist = porous_case(96,α)
-    plot!(hist.t,hist.Mz,label="$(100-α)%")
+function record_hist_mean!(sim,x₀,mean;start=floor(Int,sim_time(sim)),ramp=10,dt=0.01,duration=20)
+    L = sim.L; A = L*size(sim.flow.p,3)
+    return map(dt:dt:duration) do t
+        sim_step!(sim,start+t,remeasure=false)            # update Simulation
+        force = 2WaterLily.pressure_force(sim)/A          # compute force
+        moment = 2WaterLily.pressure_moment(x₀,sim)/(L*A) # & moment
+        t==ramp && WaterLily.reset!(mean)                 # reset mean
+        t >ramp && WaterLily.update!(mean,sim.flow)       # accumulate mean
+        @show t
+        return (;t,Fx=force[1],Fy=force[2],Mz=moment[3])   # record data
+    end |> Table
 end
-plot!(legend_title="pourosity")
+function save(prefix,sim,mean,hist)
+    WaterLily.save!(prefix*".jld2",sim)
+    WaterLily.save!(prefix*"_mean.jld2",mean)
+    save_object(prefix*"_hist.jld2",hist)
+end
+function load!(sim,mean,prefix)
+    WaterLily.load!(sim,fname=prefix*".jld2")
+    WaterLily.load!(mean,fname=prefix*"_mean.jld2")
+    load_object(prefix*"_hist.jld2")
+end
+
+using Plots
+L,α = 256,0
+sim,mean,hist = porous_case(L,100-α);
+# sim,x₀ = porous(L,mem=CuArray,α=α/100);
+# mean = MeanFlow(sim.flow);
+# hist = load!(sim,mean,"porous3d_slip_$(α)_$(L)_20")
+# hist = record_hist_mean!(sim,x₀,mean;ramp=-10,duration=1) # no reset or ramp
+# save("porous3d_slip_$(α)_$(L)_21",sim,mean,hist)
+
+for α in [0,4,8,10,12,20]
+    @show α
+    sim,mean,hist = porous_case(L,100-α)
+end
+
+pltx = plot(xlabel="Time",ylabel="Force x");
+plty = plot(xlabel="Time",ylabel="Force y");
+pltz = plot(xlabel="Time",ylabel="Moment z");
+for α in [0,4,8,10,12,20]
+    @show α
+    hist = load_object("porous3d_$(100-α)_$(L)_20_hist.jld2") # just hist
+    α == 10 && (hist.t .-= 21) # shift for visibility
+    plot!(pltx,hist.t,hist.Fx,label="$α%")
+    plot!(plty,hist.t,hist.Fy,label="$α%")
+    plot!(pltz,hist.t,hist.Mz,label="$α%")
+end
+plot!.((pltx,plty,pltz),legend_title="pourosity");
+savefig(pltx,"porous3d_L$(L)_Fx.png")
+savefig(plty,"porous3d_L$(L)_Fy.png")
+savefig(pltz,"porous3d_L$(L)_Mz.png")
 
 # # Visualization
 # using GLMakie 
