@@ -21,32 +21,28 @@ function porous(l;g=l/4,α=0.9,thk=1/11,θ=π/6,Re=20e3,U=1,T=Float32,mem=Array)
 
     # Simulation with Biot-Savart BCs (but free-slip in z)
     Ut(i,x,t::T) where T = i==1 ? convert(T,min(t/(2l),U)) : zero(T) # velocity BC
-    BiotSimulation((4l,3l,l÷4),Ut,2l;U,ν=2l*U/Re,body,T,mem,nonbiotfaces=(-3,3)),center
+    BiotSimulation((6l,3l,l),Ut,2l;U,ν=2l*U/Re,body,T,mem,nonbiotfaces=(-3,3)),center
 end
 # Add images
-import BiotSavartBCs: interaction,image,symmetry
-@inline function symmetry(ω,T,args...) # add (only two) symmetry images in z
-    T₁,sgn₁ = image(T,size(ω),-3)
-    T₂,sgn₂ = image(T,size(ω),3)
-    return interaction(ω,T,args...)+sgn₁*interaction(ω,T₁,args...)+sgn₂*interaction(ω,T₂,args...)
-end
+import BiotSavartBCs: symmetry,droste
+@inline symmetry(ω,T,args...) = droste(ω,T,3,10,args...) # Droste (hall of mirrors) in z
 
 # Read or simulate & write
-function porous_case(L,α;ramp=10,dt=0.01,duration=20)
-    sim,x₀ = porous(L,mem=CuArray,α=α/100)
+function porous_case(L,α;kwargs...)
+    sim,x₀ = porous(L,mem=CuArray,α=1-α/100)
     mean = MeanFlow(sim.flow)
     prefix = "porous3d_$(α)_$(L)_$duration"
     hist = try
         load!(sim,mean,prefix)
     catch
-        hist = record_hist_mean!(sim,x₀,mean;ramp,dt,duration)
+        hist = record_hist_mean!(sim,x₀,mean;kwargs...)
         save(prefix,sim,mean,hist)
         hist
     end
     return sim,mean,hist
 end
-function record_hist_mean!(sim,x₀,mean;start=floor(Int,sim_time(sim)),ramp=10,dt=0.01,duration=20)
-    L = sim.L; A = L*size(sim.flow.p,3)
+function record_hist_mean!(sim,x₀,mean;start=floor(Int,sim_time(sim)),ramp=10,dt=0.01,duration=20,Z=size(sim.flow.p,3))
+    L = sim.L; A = L*Z
     return map(dt:dt:duration) do t
         sim_step!(sim,start+t,remeasure=false)            # update Simulation
         force = 2WaterLily.pressure_force(sim)/A          # compute force
@@ -54,7 +50,7 @@ function record_hist_mean!(sim,x₀,mean;start=floor(Int,sim_time(sim)),ramp=10,
         t==ramp && WaterLily.reset!(mean)                 # reset mean
         t >ramp && WaterLily.update!(mean,sim.flow)       # accumulate mean
         @show t
-        return (;t,Fx=force[1],Fy=force[2],Mz=moment[3])   # record data
+        return (;t,Fx=force[1],Fy=force[2],Mz=moment[3])  # record data
     end |> Table
 end
 function save(prefix,sim,mean,hist)

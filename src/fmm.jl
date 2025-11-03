@@ -29,5 +29,16 @@ interaction!(ml,flat_targets) = @vecloop _interaction!(ml,lT) over lT ∈ flat_t
 @inline _interaction!(ml,lT) = ((l,T) = lT; ml[l][T] = symmetry(ml[l],T,l,length(ml)))
 @inline symmetry(ω,T,args...) = interaction(ω,T,args...) # default is no applied symmetry
 
+# Interaction of target T given reflection BCs on ±face including 2n recursive images (see Droste effect)
+@inline function droste(ω,T::CartesianIndex,face,n,args...)
+    s = interaction(ω,T,args...)
+    T⁺ = T⁻ = T  
+    for bounce in 0:n-1
+        T⁺,_ = image(T⁺,size(ω), face*(-1)^bounce) # positive bounce
+        T⁻,_ = image(T⁻,size(ω),-face*(-1)^bounce) # negative bounce
+        s += interaction(ω,T⁺,args...)+interaction(ω,T⁻,args...)
+    end; s
+end
+
 # Biot-Savart BC using FMM
 fmmBC!(ml,targets,flat_targets) = (interaction!(ml,flat_targets);project!(ml,targets))
