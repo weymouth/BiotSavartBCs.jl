@@ -6,7 +6,7 @@ function porous(l;g=l/4,α=0.9,thk=1/11,θ=π/6,Re=20e3,U=1,T=Float32,mem=Array)
     g,α,θ = T(g),T(α),T(θ)                                  # fix the variable types
     s,c = sincos(θ); R = g*√((1-α)/π)                       # plate tangent & pore size
 
-    center,corner = SA{T}[1.3l,1.3l,0],SA{T}[l*thk,l]       # plate center & size
+    center,corner = SA{T}[1.5l,1.3l,0],SA{T}[l*thk,l]       # plate center & size
     @show g,R,corner
 
     # define body
