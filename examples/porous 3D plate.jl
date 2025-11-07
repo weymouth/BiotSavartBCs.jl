@@ -1,13 +1,13 @@
 using WaterLily,BiotSavartBCs,CUDA,StaticArrays,JLD2,TypedTables
 WaterLily.CFL(a::Flow) = WaterLily.CFL(a;Δt_max=1)
 
-function porous(l;g=l/4,α=0.9,thk=1/11,θ=π/6,Re=20e3,U=1,T=Float32,mem=Array)
+function porous(l;g=l/4,α=0.9,thk=1/11,θ=π/6,Re=20e3,U=1,Z=l,T=Float32,mem=Array)
     # define parameters
     g,α,θ = T(g),T(α),T(θ)                                  # fix the variable types
     s,c = sincos(θ); R = g*√((1-α)/π)                       # plate tangent & pore size
 
-    center,corner = SA{T}[1.3l,1.3l,0],SA{T}[l*thk,l]       # plate center & size
-    @show g,R,corner
+    center,corner = SA{T}[1.5l,1.3l,0],SA{T}[l*thk,l]       # plate center & size
+    @show g,R,corner,Z
 
     # define body
     map(xyz,t) = SA[s c 0; -c s 0; 0 0 1]*(xyz-center)      # shift and rotate
@@ -21,26 +21,13 @@ function porous(l;g=l/4,α=0.9,thk=1/11,θ=π/6,Re=20e3,U=1,T=Float32,mem=Array)
 
     # Simulation with Biot-Savart BCs (but free-slip in z)
     Ut(i,x,t::T) where T = i==1 ? convert(T,min(t/(2l),U)) : zero(T) # velocity BC
-    BiotSimulation((6l,3l,l),Ut,2l;U,ν=2l*U/Re,body,T,mem,nonbiotfaces=(-3,3)),center
+    BiotSimulation((6l,3l,Z),Ut,2l;U,ν=2l*U/Re,body,T,mem,nonbiotfaces=(-3,3)),center
 end
 # Add images
 import BiotSavartBCs: symmetry,droste
-@inline symmetry(ω,T,args...) = droste(ω,T,3,10,args...) # Droste (hall of mirrors) in z
+@inline symmetry(ω,T,args...) = droste(ω,T,3,3,args...) # Droste (hall of mirrors) in z
 
-# Read or simulate & write
-function porous_case(L,α;kwargs...)
-    sim,x₀ = porous(L,mem=CuArray,α=1-α/100)
-    mean = MeanFlow(sim.flow)
-    prefix = "porous3d_$(α)_$(L)_$duration"
-    hist = try
-        load!(sim,mean,prefix)
-    catch
-        hist = record_hist_mean!(sim,x₀,mean;kwargs...)
-        save(prefix,sim,mean,hist)
-        hist
-    end
-    return sim,mean,hist
-end
+# run, save & load
 function record_hist_mean!(sim,x₀,mean;start=floor(Int,sim_time(sim)),ramp=10,dt=0.01,duration=20,Z=size(sim.flow.p,3))
     L = sim.L; A = L*Z
     return map(dt:dt:duration) do t
@@ -49,7 +36,7 @@ function record_hist_mean!(sim,x₀,mean;start=floor(Int,sim_time(sim)),ramp=10,
         moment = 2WaterLily.pressure_moment(x₀,sim)/(L*A) # & moment
         t==ramp && WaterLily.reset!(mean)                 # reset mean
         t >ramp && WaterLily.update!(mean,sim.flow)       # accumulate mean
-        @show t
+        @show t; flush(stdout)
         return (;t,Fx=force[1],Fy=force[2],Mz=moment[3])  # record data
     end |> Table
 end
@@ -64,51 +51,40 @@ function load!(sim,mean,prefix)
     load_object(prefix*"_hist.jld2")
 end
 
+L,Z = 128,48
 using Plots
-L,α = 256,0
-sim,mean,hist = porous_case(L,100-α);
-# sim,x₀ = porous(L,mem=CuArray,α=α/100);
-# mean = MeanFlow(sim.flow);
-# hist = load!(sim,mean,"porous3d_slip_$(α)_$(L)_20")
-# hist = record_hist_mean!(sim,x₀,mean;ramp=-10,duration=1) # no reset or ramp
-# save("porous3d_slip_$(α)_$(L)_21",sim,mean,hist)
+αs = (10,20)
 
-for α in [0,4,8,10,12,20]
-    @show α
-    sim,mean,hist = porous_case(L,100-α)
+for (i,α) in enumerate(αs)
+    @show α; flush(stdout)
+    sim,x₀ = porous(L;α=1-α/100,Z=Z*L÷8,mem=CuArray);
+    mean = MeanFlow(sim.flow);
+    @time hist = record_hist_mean!(sim,x₀,mean)
+    save("porous3d_dz$(Z)_$(100-α)_$(L)_20",sim,mean,hist)
 end
 
 pltx = plot(xlabel="Time",ylabel="Force x");
 plty = plot(xlabel="Time",ylabel="Force y");
 pltz = plot(xlabel="Time",ylabel="Moment z");
-for α in [0,4,8,10,12,20]
-    @show α
-    hist = load_object("porous3d_$(100-α)_$(L)_20_hist.jld2") # just hist
-    α == 10 && (hist.t .-= 21) # shift for visibility
+for α in αs # plot multiple porousities
+    hist = load_object("porous3d_dz$(Z)_$(100-α)_$(L)_20_hist.jld2") # just hist
     plot!(pltx,hist.t,hist.Fx,label="$α%")
     plot!(plty,hist.t,hist.Fy,label="$α%")
     plot!(pltz,hist.t,hist.Mz,label="$α%")
 end
 plot!.((pltx,plty,pltz),legend_title="pourosity");
-savefig(pltx,"porous3d_L$(L)_Fx.png")
-savefig(plty,"porous3d_L$(L)_Fy.png")
-savefig(pltz,"porous3d_L$(L)_Mz.png")
+savefig(pltx,"porous3d_dz$(Z)_L$(L)_Fx.png")
+savefig(plty,"porous3d_dz$(Z)_L$(L)_Fy.png")
+savefig(pltz,"porous3d_dz$(Z)_L$(L)_Mz.png")
 
-# # Visualization
-# using GLMakie
-# L,α = 256,0
-# sim,mean,hist = porous_case(L,100-α);
-# fig,ax = viz!(sim)  # move around to a good view
-# hidespines!(ax);hidedecorations!(ax);
-# viz!(sim;fig,ax,colorrange=(0.05,0.85)); # change range to see more detail
-# GLMakie.save("porous3d_$(α)_$(L)_instω.png", current_figure())
-
-# viz!(sim,mean.P,cut=(0,0,L÷8+1),d=2,clims=(-1,1),levels=11)
-# GLMakie.save("porous3d_$(α)_$(L)_meanPo.png", current_figure())
-# function mean_ω_mag(arr, sim)
-#     ω = sim.flow.σ
-#     @inside ω[I] = WaterLily.ω_mag(I,mean.U)
-#     copyto!(arr, ω[inside(ω)]) # copy to CPU
-# end
-# viz!(sim;f=mean_ω_mag,cut=(0,0,L÷8+1),d=2,clims=(-0.5,0.5))
-# save("porous3d_$(α)_$(L)_meanωo.png", current_figure())
+# using Plots
+# L,Z = 256,1
+# ave = map((4,8,10)) do α
+#     hist = load_object("porous3d_dz$(Z)_$(100-α)_$(L)_20_hist.jld2") # just hist
+#     Mz = sum(hist.Mz[hist.t .> 10])/length(hist.Mz[hist.t .> 10])
+#     σz = √(sum(abs2,hist.Mz[hist.t .> 10] .- Mz)/length(hist.Mz[hist.t .> 10]))
+#     (;α,Mz,σz)
+# end |> Table
+# plot(ave.α,ave.Mz,ribbon=ave.σz,fillalpha=0.5,legend=false,
+#     xlabel="Porousity (%)",ylabel="Mz",title="Thin slab simulation pitching moment")
+# savefig("porous3d_dz1_L128_mean_Mz.png")
