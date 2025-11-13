@@ -26,8 +26,8 @@ end
 drag!(sim,times,R=sim.L,x₀=SA[R,0,0];remeasure=false) = map(times) do t
     @show t; flush(stdout)
     sim_step!(sim,t;remeasure)
-    Cd,Cl = -4WaterLily.total_force(sim)[1:2]/R^2
-    Cm = 4WaterLily.pressure_moment(x₀,sim)[3]/R^3
+    Cd,Cl = -8WaterLily.total_force(sim)[1:2]/R^2
+    Cm = 8WaterLily.pressure_moment(x₀,sim)[3]/R^3
     (;t,Cd,Cl,Cm)
 end |> Table
 
