@@ -1,16 +1,17 @@
 using WaterLily,BiotSavartBCs,CUDA,StaticArrays
 WaterLily.CFL(a::Flow) = WaterLily.CFL(a;Δt_max=1) # good idea when accelerating from rest
-function kirigami(N;R=2N/3,H=zero,rings=16,U=1,a=1,Re=1e4,mem=Array,T=Float32,ϵ=T(1/2),half_thk=ϵ+1/T(√2))
-    R = T(R); δR = R/rings; @inline δH(t) = δR*H(U*t/2R)/rings
-    @inline mapped(f) = AutoBody(f,(x,t)->(x-SA[R,0,0])+SA[2R/3*H(U*t/2R),0,0])
+linear(t)=min(t,one(t))
+function kirigami(N;H=0,rings=16,U=1,a=1,Re=1e4,mem=Array,T=Float32,Ux=linear,R=T(2N/3),ϵ=T(1/2),half_thk=ϵ+1/T(√2))
+    δR = R/rings; δH = R*H/rings^2; x₀ = max(R*(1-H)/2,δR+half_thk-min(0,R*H))
+    @inline mapped(f) = AutoBody(f,(x,t)->x-SA[x₀,0,0])
     @inline ring(R₀,R₁,x₀,x₁,ϕ) = mapped() do (x,y,z),t 
         r,θ = hypot(y,z),atan(z,y)
-        δx = x₀(t)+tanh(π*r/δR)*(x₁(t)-x₀(t))*(1+cos(4θ+ϕ))/2
+        δx = x₀+tanh(π*r/δR)*(x₁-x₀)*(1+cos(4θ+ϕ))/2
         hypot(x-δx,r-clamp(r,R₀+half_thk,R₁-half_thk))-half_thk
     end
-    body = sum(i -> ring(δR*(i-1), δR*i, t->δH(t)*(i-1)^2, t->δH(t)*i^2, π*(i%2)), 1:rings)
-    H == zero && (body = ring(0,R,H,H,0)) # flat disk case
-    Ut(i,x,t) = i==1 ? min(a*t/2R,U*one(t)) : zero(t) # velocity BC
+    body = sum(i -> ring(δR*(i-1), δR*i, δH*(i-1)^2, δH*i^2, π*(i%2)), 1:rings)
+    H == 0 && (body = ring(0,R,0,0,0))
+    Ut(i,x,t) = i==1 ? U*Ux(a*U*t/2R) : zero(t) # velocity BC
     BiotSimulation((3N,N,N),Ut,R;U,ν=U*2R/Re,body,mem,T,ϵ,nonbiotfaces=(-2,-3))
 end
 
@@ -23,6 +24,7 @@ import BiotSavartBCs: interaction,symmetry,image
     return interaction(ω,T,args...)+sgn₃*interaction(ω,T₃,args...)+
      sgn₂*(interaction(ω,T₂,args...)+sgn₃*interaction(ω,T₂₃,args...))
 end
+using TypedTables
 drag!(sim,times,R=sim.L,x₀=SA[R,0,0];remeasure=false) = map(times) do t
     @show t; flush(stdout)
     sim_step!(sim,t;remeasure)
@@ -31,23 +33,24 @@ drag!(sim,times,R=sim.L,x₀=SA[R,0,0];remeasure=false) = map(times) do t
     (;t,Cd,Cl,Cm)
 end |> Table
 
-# Dynamic opening
-using TypedTables,JLD2,Plots
-N = 2^8; times = 0.05:0.05:3
-H(t,k=30) = (t+1)/2-(t-1)/2*tanh(k*(t-1))
-sim = kirigami(N;mem=CuArray,H);
-data = drag!(sim,times,remeasure=true)
-save_object("kirigami_N$(N)_Hdynamic_hist.jld2",data)
-begin
-    data = load_object("kirigami_N$(N)_Hdynamic_hist.jld2")
-    plot(data.t,data.Cd,label="dynamic",ylabel="Cd",xlabel="time")
-    data = load_object("kirigami_N384_H0.0_hist.jld2")
-    plot!(data.times,data.Cd,label="H=0",ylabel="Cd",xlabel="time",color=:grey)
-    data = load_object("kirigami_N384_H1.0_hist.jld2")
-    plot!(data.times,data.Cd,label="H=1",ylabel="Cd",xlabel="time",color=:grey,ls=:dash)
+# Test Ux ramps
+using JLD2
+N,H = 2^8,1; times = 0.05:0.05:10
+for a in (0.5f0,1,2), (name,Ux) in zip(("linear", "tanh"), (linear, tanh))
+    @show name; flush(stdout)
+    sim = kirigami(N;H,mem=CuArray,a,Ux);
+    data = drag!(sim,times,remeasure=true)
+    save_object("kirigami_N$(N)_$(name)$(a)_hist.jld2",data)
+    save!("kirigami_N$(N)_$(name)$(a).jld2",sim)
 end
-savefig("kirigami_opening.png")
-0
+using Plots
+plot();for (color,a) = zip(palette(:amp,4)[2:end], (0.5,1,2))
+    data = load_object("kirigami_N$(N)_linear$(a)_hist.jld2")
+    plot!(data.t,data.Cd,label=a;color)
+    data = load_object("kirigami_N$(N)_tanh$(a)_hist.jld2")
+    plot!(data.t,data.Cd,label=nothing,ls=:dash;color)
+end;plot!(legend=:topright,legendtitle="a*",xlabel="time",ylabel="Cd")
+savefig("kirigami_Ux_H1.png")
 # # Angle sweep
 # N = 3*2^7
 # times = 0.05:0.05:3
