@@ -1,17 +1,17 @@
 using WaterLily,BiotSavartBCs,CUDA,StaticArrays
 WaterLily.CFL(a::Flow) = WaterLily.CFL(a;Δt_max=1) # good idea when accelerating from rest
 linear(t)=min(t,one(t))
-function kirigami(N;H=0,rings=16,U=1,a=1,Re=1e4,mem=Array,T=Float32,Ux=linear,R=T(2N/3),ϵ=T(1/2),half_thk=ϵ+1/T(√2))
+function kirigami(N;H=0,rings=16,U=1,a=1,Re=1e4,mem=Array,T=Float32,Ux=linear,R=T(2N/3),ϵ=T(1/2),half_thk=ϵ+1/T(√2),fall=false)
     δR = R/rings; δH = R*H/rings^2; x₀ = max(R*(1-H)/2,δR+half_thk-min(0,R*H))
     @inline mapped(f) = AutoBody(f,(x,t)->x-SA[x₀,0,0])
-    @inline ring(R₀,R₁,x₀,x₁,ϕ) = mapped() do (x,y,z),t 
+    @inline ring(R₀,R₁,x₀,x₁,ϕ) = mapped() do (x,y,z),t
         r,θ = hypot(y,z),atan(z,y)
         δx = x₀+tanh(π*r/δR)*(x₁-x₀)*(1+cos(4θ+ϕ))/2
         hypot(x-δx,r-clamp(r,R₀+half_thk,R₁-half_thk))-half_thk
     end
     body = sum(i -> ring(δR*(i-1), δR*i, δH*(i-1)^2, δH*i^2, π*(i%2)), 1:rings)
     H == 0 && (body = ring(0,R,0,0,0))
-    Ut(i,x,t) = i==1 ? U*Ux(a*U*t/2R) : zero(t) # velocity BC
+    Ut = fall ? (0,0,0) : (i,x,t)->(i==1 ? U*Ux(a*U*t/2R) : zero(t)) # velocity BC
     BiotSimulation((3N,N,N),Ut,R;U,ν=U*2R/Re,body,mem,T,ϵ,nonbiotfaces=(-2,-3))
 end
 
@@ -109,7 +109,7 @@ savefig("kirigami_Ux_H1.png")
 # end
 
 # using TypedTables,JLD2,Plots
-# begin 
+# begin
 #     N = 3*2^7
 #     data = load_object("kirigami_N$(N)_H0.0_hist.jld2")
 #     plot(data.times,data.Cd,label="H=0";color=:black,xlabel="time",ylabel="Drag");
@@ -128,3 +128,81 @@ savefig("kirigami_Ux_H1.png")
 # using GLMakie
 # viz!(sim,colorrange=(0.1,0.85),body_color=:blue,body2mesh=true,colormap=:amp)
 # Makie.save("examples/kirigami.png", Makie.current_figure())
+
+# Biot-Savart momentum step with U and acceleration prescribed
+import WaterLily: scale_u!,conv_diff!,udf!,BDIM!,CFL
+import BiotSavartBCs: biot_project!
+function biot_mom_step_fall!(a::Flow{N},b,ω...;λ=quick,udf=nothing,fmm=true,U,kwargs...) where N
+    a.u⁰ .= a.u; scale_u!(a,0); t₁ = sum(a.Δt); t₀ = t₁-a.Δt[end]
+    # predictor u → u'
+    @log "p"
+    conv_diff!(a.f,a.u⁰,a.σ,λ,ν=a.ν)
+    udf!(a,udf,t₀; kwargs...)
+    BDIM!(a);
+    biot_project!(a,b,ω...,U;fmm)
+    # corrector u → u¹
+    @log "c"
+    conv_diff!(a.f,a.u,a.σ,λ,ν=a.ν)
+    udf!(a,udf,t₁; kwargs...)
+    BDIM!(a); scale_u!(a,0.5)
+    biot_project!(a,b,ω...,U;fmm,w=0.5)
+    push!(a.Δt,CFL(a))
+end
+
+import WaterLily: @loop
+# falling body acceleration term
+fall!(flow,t;acceleration) = for i ∈ 1:ndims(flow.p)
+    @loop flow.f[I,i] += acceleration[i] over I ∈ CartesianIndices(flow.p)
+end
+
+# ODE function for falling body under gravity
+function gravity!(du,u,p,t)
+    # unpack the state
+    xᵢ,uᵢ,aᵢ,Fᵢ = u
+    # unpack constant params
+    m,mₐ,g = p
+    # rates (du[3:4] are unused)
+    du[1] = uᵢ
+    du[2] = (Fᵢ - mₐ*aᵢ + m*g)/(m + mₐ)
+end
+
+# Free-falling simulation
+freefalling!(sim,times,gravity,R=sim.L,x₀=SA[R,0,0];x0=0.f0,vel=0.f0,acc=0.f0,remeasure=false) = map(times) do t
+    @show t; flush(stdout)
+    while sim_time(sim) < t
+         # compute pressure force
+        force = -WaterLily.total_force(sim)
+        # update ODE, first pack current state, solve and extract
+        SciMLBase.set_u!(gravity,[x0,vel,acc,force[1]])
+        OrdinaryDiffEq.step!(gravity,sim.flow.Δt[end],true)
+        x0,vel,acc = gravity.u[1:3]
+        # remeasure the sim
+        remeasure && measure!(sim)
+        biot_mom_step_fall!(sim.flow,sim.pois,sim.ω,sim.x₀,sim.tar,sim.ftar;
+                            fmm=sim.fmm,udf=fall!,acceleration=-SA[acc,0.0f0,0.0f0],U=-SA[vel,0.0f0,0.0f0]) # change of frame
+    end
+    Cd,Cl = -8WaterLily.total_force(sim)[1:2]/R^2
+    Cm = 8WaterLily.pressure_moment(x₀,sim)[3]/R^3
+    (;t,Cd,Cl,Cm,vel)
+end |> Table
+
+using OrdinaryDiffEq
+# free falling
+N = 2^7; times = 0.05:0.05:6
+# all quantities for 1/4 of the disk, assumes thickness of disk is 3 for mass, ρ is density ratios
+ρ=10.f0; R=2N/3.f0; U=1.f0
+u₀ = [0.f0,0.f0,0.f0,0.f0]; params = (ρ*3.f0*π*R^2,2/3.f0R^2,-U^2/2R)
+for (H,name) in zip((0,0.5f0,1.f0),("0", "half", "1"))
+    @show name; flush(stdout)
+    sim = kirigami(N;mem=CuArray,H,R,U,fall=true);
+    # make an ODE problem
+    gravity = init(ODEProblem(gravity!,u₀,extrema(times),params),Tsit5(),abstol=1e-6,reltol=1e-6,save_everystep=false)
+    data = freefalling!(sim,times,gravity,remeasure=false)
+    save_object("kirigami_N$(N)_H$(name)_fall_hist.jld2",data)
+    save!("kirigami_N$(N)_H$(name)_fall.jld2",sim)
+end
+plot();for (color,a,label) = zip(palette(:amp,4)[2:end],("0","half","1"), ("0","1/2","1"))
+    data = load_object("kirigami_N$(N)_H$(a)_fall_hist.jld2")
+    plot!(data.t,data.Cd,label=label;color)
+end;plot!(legend=:topright,legendtitle="H",xlabel="time",ylabel="Cd")
+savefig("kirigami_fall.png")
