@@ -53,6 +53,7 @@ function sim_step!(sim::BiotSimulation;remeasure=true,meanflow=nothing,kwargs...
 end
 # overload properties
 Base.getproperty(f::BiotSimulation, s::Symbol) = s in propertynames(f) ? getfield(f, s) : getfield(f.sim, s)
+Base.setproperty!(f::BiotSimulation, s::Symbol, x) = s in propertynames(f) ? setproperty!(f,s,x) : setproperty!(f.sim,s,x)
 export BiotSimulation
 
 end # module

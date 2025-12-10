@@ -168,6 +168,8 @@ end
         @test abs(u_inf-0.75)<0.02 # upstream slow down
         @time sim_step!(sim;remeasure=false)
         @show sim.pois.n
+        sim.pois.n[end] = -1 # setproperty!
+        @test sim.pois.n[end] == -1
     end
 
     sphere(D,m=3D÷2) = BiotSimulation((m,m,m), (1,0,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=D/1e4)
