@@ -27,7 +27,7 @@ using BiotSavartBCs: @vecloop,inside_u,restrict!,project!,down,front,step
     Ti = last(tar[2])
     T,i = front(Ti),last(Ti)
     @test CartesianIndex(down(T),i)==last(tar[3])
-    
+
     @vecloop ml[3][I] += 16 over I in tar[3]
     project!(ml,tar)
     @test ml[2][Ti] == 4
@@ -48,7 +48,7 @@ using BiotSavartBCs: @vecloop,inside_u,restrict!,project!,down,front,step
     Ti = last(tar[2])
     T,i = front(Ti),last(Ti)
     @test CartesianIndex(down(T),i)==last(tar[3])
-    
+
     @vecloop ml[3][I] += 4 over I in tar[3]
     project!(ml,tar)
     @test ml[2][Ti] == 2
@@ -142,7 +142,7 @@ using BiotSavartBCs: slice
     biotBC!(u,U,ω,tar,ftar;fmm=true) # fix domain velocities
     @test maximum(abs,(u.-u₀)[2:end,2:end-1,1])<0.028
     @test maximum(abs,(u.-u₀)[2:end-1,2:end,2])<0.025
-    
+
     BC!(u,U) # mess up boundaries
     biotBC!(u,U,ω,tar,ftar;fmm=false) # fix domain velocities
     @test maximum(abs,(u.-u₀)[2:end,2:end-1,1])<0.0063 # No target interpolation error
@@ -168,6 +168,8 @@ end
         @test abs(u_inf-0.75)<0.02 # upstream slow down
         @time sim_step!(sim;remeasure=false)
         @show sim.pois.n
+        sim.pois.n[end] = -1 # setproperty!
+        @test sim.pois.n[end] == -1
     end
 
     sphere(D,m=3D÷2) = BiotSimulation((m,m,m), (1,0,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=D/1e4)
