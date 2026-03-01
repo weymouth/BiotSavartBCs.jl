@@ -101,7 +101,7 @@ vtk_λ₂(a::AbstractSimulation) = (@inside a.flow.σ[I] = λ₂(I,a.flow.u); a.
 
 # Dynamic opening
 using TypedTables,JLD2,Plots
-N = 2^8; times = 0.2:0.2:20.0
+N = 2^7; times = 0.2:0.2:20.0
 θ₀=0.4f0; H=1.0; ρ=10.f0; R=2N/3.f0; U=1.f0 # only values H ∈ [0,1]
 sim = kirigami(N;mem=CuArray,H=2,fall=true,θ₀);
 
@@ -112,33 +112,32 @@ params = (m=3π*ρ*R^2/2,                              # mass of body
           mₐ=SA{Float32}[4/3.f0*R^3, 1/3.f0*R^3, 0], # added mass in body frame
           Iₘ=ρ*3.f0*π*R^4/8.0f0,                     # moment of inertia of body
           Iₐ=(8/45.f0)*π*R^5,                        # added moment of inertia
-          θ=θ₀,ω=0.f0,α=0.f0) 
+          θ=θ₀,ω=0.f0,α=0.f0)
 Xₘ = sim.body.a.b.map.x₀+sim.body.a.b.map.xₚ # moment point in lab frame
 
-# single run
-writer = vtkWriter("kirigami_N$(N)_H$(H)_fall"; attrib=Dict("ω"=>vtk_ω,"λ₂"=>vtk_λ₂,"d"=>vtk_d))
-data = freefalling!(sim,times,params,Xₘ;save=true)
-close(writer)
+# # single run
+# writer = vtkWriter("kirigami_N$(N)_H$(H)_fall"; attrib=Dict("ω"=>vtk_ω,"λ₂"=>vtk_λ₂,"d"=>vtk_d))
+# data = freefalling!(sim,times,params,Xₘ;save=true)
+# close(writer)
 
-# flood(sim.flow.μ₀[2:end-1,2:end-1,2,1])
-flood(sim.flow.u[2:end-1,2:end-1,2,1])
-scatter!([sim.body.a.b.map.x₀[1]+sim.body.a.b.map.xₚ[1]],[sim.body.a.b.map.x₀[2]+sim.body.a.b.map.xₚ[2]],
-          markersize=5,color=:red,label=:none)
+# # flood(sim.flow.μ₀[2:end-1,2:end-1,2,1])
+# flood(sim.flow.u[2:end-1,2:end-1,2,1])
+# scatter!([sim.body.a.b.map.x₀[1]+sim.body.a.b.map.xₚ[1]],[sim.body.a.b.map.x₀[2]+sim.body.a.b.map.xₚ[2]],
+#           markersize=5,color=:red,label=:none)
 
-begin
-    p1=plot(data.t,data.Cd,label="Cd",xlim=extrema(times),ylims=(-1,Inf),lw=2)
-    plot!(p1,data.t,data.Cm,label="Cm",ylabel="Cd,Cm",lw=2)
-    p2=plot(data.t,data.u₁,label="u₁",xlabel="time",xlim=extrema(times),lw=2)
-    plot!(p2,data.t,data.u₂,label="u₂",xlabel="time",lw=2)
-    plot!(p2,data.t,data.θ,label="θ",ls=:dash,ylabel="u₁,u₂,θ",lw=2)
-    plot(p1,p2,layout=(2,1),size=(600,600))
-end
+# begin
+#     p1=plot(data.t,data.Cd,label="Cd",xlim=extrema(times),ylims=(-1,Inf),lw=2)
+#     plot!(p1,data.t,data.Cm,label="Cm",ylabel="Cd,Cm",lw=2)
+#     p2=plot(data.t,data.u₁,label="u₁",xlabel="time",xlim=extrema(times),lw=2)
+#     plot!(p2,data.t,data.u₂,label="u₂",xlabel="time",lw=2)
+#     plot!(p2,data.t,data.θ,label="θ",ls=:dash,ylabel="u₁,u₂,θ",lw=2)
+#     plot(p1,p2,layout=(2,1),size=(600,600))
+# end
 
 # domain sweep
 θ₀ = 0.2f0; H = 1.f0
-for dims in ((3N,2N,N),(3N,N,N),(6N,N,N))
+for dims in ((3N,3N,3N÷2),(3N,3N,N),(4N,3N,N))
     @show dims, θ₀, H
-    u₀ = zeros(12); u₀[7] = θ₀ # initial rotation
     sim = kirigami(N;mem=CuArray,H,fall=true,θ₀,dims=dims);
     measure_sdf!(sim.flow.σ,sim.body,WaterLily.time(sim))
     flood(sim.flow.σ[2:end-1,2:end-1,2],clims=(-1,1)); savefig("kirigami_N$(N)_$(dims[1])x$(dims[2])x$(dims[3])_initial.png")
@@ -152,7 +151,6 @@ end
 # theta and H sweep
 for θ₀ in (0.4f0,0.2f0,0.f0), H in (0.5,1.0,2.0,4.f0)
     @show θ₀,H
-    u₀ = zeros(12); u₀[7] = θ₀ # initial rotation
     sim = kirigami(N;mem=CuArray,H,fall=true,θ₀);
     measure_sdf!(sim.flow.σ,sim.body,WaterLily.time(sim))
     flood(sim.flow.σ[2:end-1,2:end-1,2],clims=(-1,1)); savefig("kirigami_N$(N)_H$(H)_θ$(θ₀)_initial.png")
