@@ -132,70 +132,52 @@ vtk_ω(a::AbstractSimulation) = (@loop a.flow.f[I,:] .= ω(I,a.flow.u) over I in
 vtk_d(a::AbstractSimulation) = (measure_sdf!(a.flow.σ,a.body,WaterLily.time(a)); a.flow.σ |> Array)
 vtk_λ₂(a::AbstractSimulation) = (@inside a.flow.σ[I] = λ₂(I,a.flow.u); a.flow.σ |> Array)
 
-# Dynamic opening
+# free falling
 using TypedTables,JLD2,Plots
 N = 2^7; times = 0.2:0.2:20.0
 θ₀=0.2f0; H=2.0; ρ=10.f0; R=2N/3.f0; U=1.f0 # only values H ∈ [0,1]
 
-# all quantities for 1/2 of the disk, assumes thickness of disk is 3 for mass, ρ is density ratios
-# m=3πρR² m11 = 8/3R³, m22=m11/3?, Im = 3πρR⁴/4, Ia = 16/45πR⁵
-params = (m=3π*ρ*R^2/2,                              # mass of body
-          g=SA{Float32}[-U^2/R,0,0],                 # gravity in lab frame
-          mₐ=SA{Float32}[4/3.f0*R^3, 1/3.f0*R^3, 0], # added mass in body frame
-          Iₘ=ρ*3.f0*π*R^4/8.0f0,                     # moment of inertia of body
-          Iₐ=(8/45.f0)*π*R^5,                        # added moment of inertia
-          θ=θ₀,ω=0.f0,α=0.f0)
-
-CUDA.device!(1) # run on second GPU if available
-# compute real added mass and added-inertial for the body
-params_2 = compute_paramaters!(N,H,θ₀,ρ;R,mem=CuArray,T=Float32)
-
 # single run
+# compute real added mass and added-inertial for the body
+params = compute_paramaters!(N,H,θ₀,ρ;R,mem=CuArray,T=Float32)
 sim = kirigami(N;mem=CuArray,H=H,fall=true,θ₀);
 Xₘ = sim.body.a.b.map.x₀ # moment point in lab frame
 # writer = vtkWriter("kirigami_N$(N)_H$(H)_fall"; attrib=Dict("ω"=>vtk_ω,"λ₂"=>vtk_λ₂,"d"=>vtk_d))
-data = freefalling!(sim,times,params_2,Xₘ;save=false)
+data = freefalling!(sim,times,params,Xₘ;save=false)
 # close(writer)
 
-# flood(sim.flow.μ₀[2:end-1,2:end-1,2,1])
-flood(sim.flow.u[2:end-1,2:end-1,2,1])
-scatter!([sim.body.a.b.map.x₀[1]+sim.body.a.b.map.xₚ[1]],[sim.body.a.b.map.x₀[2]+sim.body.a.b.map.xₚ[2]],
-          markersize=5,color=:red,label=:none)
-
-begin
-    p1=plot(data.t,data.Cd,label="Cd",xlim=extrema(times),ylims=(-1,Inf),lw=2)
-    plot!(p1,data.t,data.Cm,label="Cm",ylabel="Cd,Cm",lw=2)
-    p2=plot(data.t,data.u₁,label="u₁",xlabel="time",xlim=extrema(times),lw=2)
-    plot!(p2,data.t,data.u₂,label="u₂",xlabel="time",lw=2)
-    plot!(p2,data.t,data.θ,label="θ",ls=:dash,ylabel="u₁,u₂,θ",lw=2)
-    plot(p1,p2,layout=(2,1),size=(600,600))
+# domain sweep
+θ₀ = 0.2f0; H = 1.f0
+params = compute_paramaters!(N,H,θ₀,ρ;R,mem=CuArray,T=Float32)
+for dims in ((3N,3N,3N÷2),(3N,3N,2N),(4N,3N,2N))
+    @show dims, θ₀, H
+    sim = kirigami(N;mem=CuArray,H,fall=true,θ₀,dims=dims);
+    measure_sdf!(sim.flow.σ,sim.body,WaterLily.time(sim))
+    flood(sim.flow.σ[2:end-1,2:end-1,2],clims=(-1,1)); savefig("kirigami_N$(N)_$(dims[1])x$(dims[2])x$(dims[3])_initial.png")
+    data = freefalling!(sim,times,params,Xₘ)
+    save_object("kirigami_N$(N)_$(dims[1])x$(dims[2])x$(dims[3])_fall.jld2",data)
+    flood(sim.flow.u[2:end-1,2:end-1,2,1])
+    scatter!([Xₘ[1]],[Xₘ[2]],markersize=5,color=:red,label=:none)
+    savefig("kirigami_N$(N)_$(dims[1])x$(dims[2])x$(dims[3])_final.png")
 end
 
-# domain sweep
-# θ₀ = 0.2f0; H = 1.f0
-# for dims in ((3N,3N,3N÷2),(3N,3N,2N),(4N,3N,2N))
-#     @show dims, θ₀, H
-#     sim = kirigami(N;mem=CuArray,H,fall=true,θ₀,dims=dims);
-#     measure_sdf!(sim.flow.σ,sim.body,WaterLily.time(sim))
-#     flood(sim.flow.σ[2:end-1,2:end-1,2],clims=(-1,1)); savefig("kirigami_N$(N)_$(dims[1])x$(dims[2])x$(dims[3])_initial.png")
-#     data = freefalling!(sim,times,params,Xₘ)
-#     save_object("kirigami_N$(N)_$(dims[1])x$(dims[2])x$(dims[3])_fall.jld2",data)
-#     flood(sim.flow.u[2:end-1,2:end-1,2,1])
-#     scatter!([Xₘ[1]],[Xₘ[2]],markersize=5,color=:red,label=:none)
-#     savefig("kirigami_N$(N)_$(dims[1])x$(dims[2])x$(dims[3])_final.png")
-# end
-
 # theta and H sweep
-# for θ₀ in (0.4f0,0.2f0,0.f0), H in (0.25,4.f0)
-#     @show θ₀,H
-#     sim = kirigami(N;mem=CuArray,H,fall=true,θ₀,dims=(6N,4N,3N÷2));
-#     Xₘ = sim.body.a.b.map.x₀+sim.body.a.b.map.xₚ # moment point in lab frame
-#     measure_sdf!(sim.flow.σ,sim.body,WaterLily.time(sim))
-#     flood(sim.flow.σ[2:end-1,2:end-1,2],clims=(-1,1))
-#     savefig("kirigami_N$(N)_H$(H)_θ$(θ₀)_initial.png")
-#     data = freefalling!(sim,times,params,Xₘ)
-#     save_object("kirigami_N$(N)_H$(H)_θ$(θ₀)_fall.jld2",data)
-#     flood(sim.flow.u[2:end-1,2:end-1,2,1])
-#     scatter!([Xₘ[1]],[Xₘ[2]],markersize=5,color=:red,label=:none)
-#     savefig("kirigami_N$(N)_H$(H)_θ$(θ₀)_final.png")
-# end
+for H in (0.25,0.5,1.0,2.0)
+    # measure every time H changes
+    params = compute_paramaters!(N,H,θ₀,ρ;R,mem=CuArray,T=Float32)
+    for θ₀ in (0.4f0,0.2f0,0.f0)
+        @show θ₀,H
+        # set initial condition right
+        params = Base.setindex(params, θ₀, :θ)
+        sim = kirigami(N;mem=CuArray,H,fall=true,θ₀,dims=(6N,4N,3N÷2));
+        Xₘ = sim.body.a.b.map.x₀ # moment point in lab frame
+        measure_sdf!(sim.flow.σ,sim.body,WaterLily.time(sim))
+        flood(sim.flow.σ[2:end-1,2:end-1,2],clims=(-1,1))
+        savefig("kirigami_N$(N)_H$(H)_θ$(θ₀)_initial.png")
+        data = freefalling!(sim,times,params,Xₘ)
+        save_object("kirigami_N$(N)_H$(H)_θ$(θ₀)_fall.jld2",data)
+        flood(sim.flow.u[2:end-1,2:end-1,2,1])
+        scatter!([Xₘ[1]],[Xₘ[2]],markersize=5,color=:red,label=:none)
+        savefig("kirigami_N$(N)_H$(H)_θ$(θ₀)_final.png")
+    end
+end
