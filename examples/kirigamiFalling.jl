@@ -31,6 +31,7 @@ linear(t)=min(t,one(t))
 function kirigami(N;H=0,rings=16,U=1,a=1,Re=1e4,mem=Array,T=Float32,Ux=linear,R=T(2N/3),θ₀=0.f0,
                   dims=(3N,3N,3N÷2),ϵ=T(1/2),half_thk=ϵ+1/T(√2),fall=false,dir=1)
     δR = R/rings; δH = R*H/rings^2; x₀ = max(R*(1-H)/2,δR+half_thk-min(0,R*H))+0.25R
+    H==0.25 && (x₀ += R) # add some extra space for the body to fall into when H is small
     @inline mapped(f) = AutoBody(f,RigidMap(SA[x₀,dims[2]/2.f0,0],SA{T}[0,0,θ₀]))
     @inline ring(R₀,R₁,x₀,x₁,ϕ) = mapped() do (x,y,z),t
         r,θ = hypot(y,z),atan(z,y)
@@ -93,37 +94,43 @@ end
 #helper to rotate a vector
 @inline @fastmath rotate(v,θ::T) where T = SA{T}[cos(θ) -sin(θ) 0; sin(θ) cos(θ) 0; 0 0 1]*v
 
-freefalling!(sim,times,state,Xₘ;R=sim.L,g=state.g,X₀=zero(g),vel=zero(g),acc=zero(g),
-            θ=state.θ,ω=state.ω,α=state.α,m=state.m,Iₘ=state.Iₘ,Iₐ=state.Iₐ,
-            mₐ=state.mₐ,save=false) = map(times) do t
-    while sim_time(sim) < t
-        # the step we are doing and the initial angle
-        Δt = sim.flow.Δt[end]
-        # compute pressure force and moment in lab frame
-        force = -WaterLily.total_force(sim)
-        moment = -WaterLily.pressure_moment(Xₘ,sim)[3]
-        # transform to body frame
-        force,acc = rotate(force+m.*g, -θ),rotate(acc, -θ)
-        # update linear motion in body frame, and then back to lab frame
-        acc = rotate((force - mₐ.*acc)./(m .+ mₐ), θ).*SA{Float32}[1,1,0]
-        vel += Δt*acc; X₀ += Δt*vel
-        # update rotation ODE
-        α = (moment - α*Iₐ)/(Iₘ + Iₐ)
-        ω += Δt*α; θ += Δt*ω # Verlet
-        # remeasure the sim
-        sim.body = setmap(sim.body;θ=SA{Float32}[0,0,θ],ω=SA{Float32}[0,0,ω]) # update rotational variables
-        measure!(sim)
-        biot_mom_step_fall!(sim;udf=fall!,acceleration=-acc,U=-vel)
+function freefalling!(sim,times,state,Xₘ;R=sim.L,g=state.g,X₀=zero(g),vel=zero(g),acc=zero(g),
+                      θ=state.θ,ω=state.ω,α=state.α,m=state.m,Iₘ=state.Iₘ,Iₐ=state.Iₐ,
+                      mₐ=state.mₐ,save=false)
+    data = NamedTuple[] # store data
+    for t in times
+        while sim_time(sim) < t
+            # the step we are doing and the initial angle
+            Δt = sim.flow.Δt[end]
+            # compute pressure force and moment in lab frame
+            force = -WaterLily.total_force(sim)
+            moment = -WaterLily.pressure_moment(Xₘ,sim)[3]
+            # transform to body frame
+            force,acc = rotate(force+m.*g, -θ),rotate(acc, -θ)
+            # update linear motion in body frame, and then back to lab frame
+            acc = rotate((force - mₐ.*acc)./(m .+ mₐ), θ).*SA{Float32}[1,1,0]
+            vel += Δt*acc; X₀ += Δt*vel
+            # update rotation ODE
+            α = (moment - α*Iₐ)/(Iₘ + Iₐ)
+            ω += Δt*α; θ += Δt*ω # Verlet
+            # remeasure the sim
+            sim.body = setmap(sim.body;θ=SA{Float32}[0,0,θ],ω=SA{Float32}[0,0,ω]) # update rotational variables
+            measure!(sim)
+            biot_mom_step_fall!(sim;udf=fall!,acceleration=-acc,U=-vel)
+        end
+        # (abs(θ) > 2π÷3) && break # stop if it flips over, not sure how to handle that yet
+        maximum(abs, vel) > 10U && break # stop if it goes out of control, probably numerical instability at that point
+        save && save!(writer,sim)
+        println("tU/L=",round(t,digits=4),", Δt=",round(sim.flow.Δt[end],digits=3),
+                " X₁=", round(X₀[1]/sim.L,digits=3), " θ=", round(rad2deg(θ),digits=3),
+                "° u₁=", round(vel[1]/sim.U,digits=3), " a₁=", round(acc[1]/(sim.U^2/sim.L),digits=3))
+        flush(stdout)
+        Cd,Cl = -4WaterLily.total_force(sim)[1:2]/R^2
+        Cm = 4WaterLily.pressure_moment(Xₘ,sim)[3]/R^3
+        push!(data, (;t,Cd,Cl,Cm,u₁=vel[1],u₂=vel[2],a₁=acc[1],a₂=acc[2],θ,ω,α))
     end
-    save && save!(writer,sim)
-    println("tU/L=",round(t,digits=4),", Δt=",round(sim.flow.Δt[end],digits=3),
-            " X₁=", round(X₀[1]/sim.L,digits=3), " θ=", round(rad2deg(θ),digits=3),
-            "° u₁=", round(vel[1]/sim.U,digits=3), " a₁=", round(acc[1]/(sim.U^2/sim.L),digits=3))
-    flush(stdout)
-    Cd,Cl = -4WaterLily.total_force(sim)[1:2]/R^2
-    Cm = 4WaterLily.pressure_moment(Xₘ,sim)[3]/R^3
-    (;t,Cd,Cl,Cm,u₁=vel[1],u₂=vel[2],a₁=acc[1],a₂=acc[2],θ,ω,α)
-end |> Table
+    return Table(data)
+end
 
 # make a writer with some attributes, need to output to CPU array to save file (|> Array)
 using WriteVTK
@@ -134,26 +141,28 @@ vtk_λ₂(a::AbstractSimulation) = (@inside a.flow.σ[I] = λ₂(I,a.flow.u); a.
 
 # free falling
 using TypedTables,JLD2,Plots
-N = 2^7; times = 0.2:0.2:20.0
+N = 2^7; times = 0.2:0.05:20.0
 θ₀=0.2f0; H=2.0; ρ=10.f0; R=2N/3.f0; U=1.f0 # only values H ∈ [0,1]
 
 # single run
 # compute real added mass and added-inertial for the body
-params = compute_paramaters!(N,H,θ₀,ρ;R,mem=CuArray,T=Float32)
-sim = kirigami(N;mem=CuArray,H=H,fall=true,θ₀);
-Xₘ = sim.body.a.b.map.x₀ # moment point in lab frame
+# params = compute_paramaters!(N,H,θ₀,ρ;R,mem=CuArray,T=Float32)
+# sim = kirigami(N;mem=CuArray,H=H,fall=true,θ₀);
+# Xₘ = sim.body.a.b.map.x₀ # moment point in lab frame
 # writer = vtkWriter("kirigami_N$(N)_H$(H)_fall"; attrib=Dict("ω"=>vtk_ω,"λ₂"=>vtk_λ₂,"d"=>vtk_d))
-data = freefalling!(sim,times,params,Xₘ;save=false)
+# data = freefalling!(sim,times,params,Xₘ;save=false)
 # close(writer)
 
 # domain sweep
 θ₀ = 0.2f0; H = 1.f0
 params = compute_paramaters!(N,H,θ₀,ρ;R,mem=CuArray,T=Float32)
-for dims in ((3N,3N,3N÷2),(3N,3N,2N),(4N,3N,2N))
+for dims in ((6N,4N,3N),(8N,4N,3N))
     @show dims, θ₀, H
     sim = kirigami(N;mem=CuArray,H,fall=true,θ₀,dims=dims);
+    Xₘ = sim.body.a.b.map.x₀ # moment point in lab frame
     measure_sdf!(sim.flow.σ,sim.body,WaterLily.time(sim))
-    flood(sim.flow.σ[2:end-1,2:end-1,2],clims=(-1,1)); savefig("kirigami_N$(N)_$(dims[1])x$(dims[2])x$(dims[3])_initial.png")
+    flood(sim.flow.σ[2:end-1,2:end-1,2],clims=(-1,1))
+    savefig("kirigami_N$(N)_$(dims[1])x$(dims[2])x$(dims[3])_initial.png")
     data = freefalling!(sim,times,params,Xₘ)
     save_object("kirigami_N$(N)_$(dims[1])x$(dims[2])x$(dims[3])_fall.jld2",data)
     flood(sim.flow.u[2:end-1,2:end-1,2,1])
@@ -162,10 +171,10 @@ for dims in ((3N,3N,3N÷2),(3N,3N,2N),(4N,3N,2N))
 end
 
 # theta and H sweep
-for H in (0.25,0.5,1.0,2.0)
+for H in (0.25,0.5,1.0,2.0,4.0)
     # measure every time H changes
     params = compute_paramaters!(N,H,θ₀,ρ;R,mem=CuArray,T=Float32)
-    for θ₀ in (0.4f0,0.2f0,0.f0)
+    for θ₀ in (0.f0,0.2f0,0.4f0)
         @show θ₀,H
         # set initial condition right
         params = Base.setindex(params, θ₀, :θ)
