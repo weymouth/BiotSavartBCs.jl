@@ -21,9 +21,11 @@ end
 slice_u(N::NTuple{n},i,j,s) where n = CartesianIndices(ntuple(k-> k==i ? (s:s) : k==j ? (2:N[k]) : (2:N[k]-1),n))
 
 # Biot-Savart BCs
-function biotBC!(u,U,ml,targets,flat_targets;fmm=true)
-    fmm ? fmmBC!(ml,targets,flat_targets) : treeBC!(ml,targets[1]) # Fill ml[targets]=uᵥ
-    @vecloop _biotBC!(u,U,ml[1],Ii) over Ii ∈ targets[1]           # Set u = uᵥ+U
+biotBC!(u,U::Tuple,ω,tar,ftar,t=zero(eltype(u));fmm=true) = biotBC!(u,(i,x,t)->U[i],ω,tar,ftar,t;fmm)
+function biotBC!(u,uBC::Function,ω,tar,ftar,t=zero(eltype(u));fmm=true)
+    N,T = ndims(u)-1,eltype(u); U = ntuple(i->uBC(i,zero(SVector{N,T}),t),N)
+    fmm ? fmmBC!(ω,tar,ftar) : treeBC!(ω,tar[1]) # Fill ω[targets]=uᵥ
+    @vecloop _biotBC!(u,U,ω[1],Ii) over Ii ∈ tar[1]            # Set u = uᵥ+U
 end
 @inline function _biotBC!(u,U,uᵥ,Ii)
     i,I = last(Ii),front(Ii); lower = I.I[i]==1
@@ -32,10 +34,12 @@ end
 
 using Atomix
 # Biot-Savart BCs + residual update
-function biotBC_r!(r,u,U,ml,targets,flat_targets;fmm=true)
-    fmm ? fmmBC!(ml,targets,flat_targets) : treeBC!(ml,targets[1]) # Fill ml[targets]=uᵥ
-    @vecloop _biotBC_r!(r,u,U,ml[1],Ii) over Ii ∈ targets[1]       # Update the u,r
-    fix_resid!(r,u,targets[1])                                     # Fix u,r
+biotBC_r!(r,u,U::Tuple,ω,tar,ftar,t=zero(eltype(u));fmm=true) = biotBC_r!(r,u,(i,x,t)->U[i],ω,tar,ftar,t;fmm)
+function biotBC_r!(r,u,uBC::Function,ω,tar,ftar,t=zero(eltype(u));fmm=true)
+    N,T = ndims(u)-1,eltype(u); U = ntuple(i->uBC(i,zero(SVector{N,T}),t),N)
+    fmm ? fmmBC!(ω,tar,ftar) : treeBC!(ω,tar[1]) # Fill ω[targets]=uᵥ
+    @vecloop _biotBC_r!(r,u,U,ω[1],Ii) over Ii ∈ tar[1]        # Update the u,r
+    fix_resid!(r,u,tar[1])                                      # Fix u,r
 end
 @inline function _biotBC_r!(r,u,U,uᵥ,Ii)
     I,i = front(Ii),last(Ii); lower = I.I[i]==1
