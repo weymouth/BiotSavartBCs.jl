@@ -9,64 +9,70 @@ Fields:
 - `ω`    : multi-level vorticity (top level aliases `flow.f`)
 - `tar`  : domain boundary target index arrays per multigrid level
 - `ftar` : flattened target list for kernel dispatch
-- `x₀`  : pressure solution accumulator across outer Newton iterations
+- `p`    : pressure solution accumulator 
 - `fmm`  : use Fast Multi-level Method (`true`) or tree-sum (`false`)
 """
-struct BiotSavartPoisson{T,S,V} <: WaterLily.AbstractPoisson{T,S,V}
+struct BiotSavartPoisson{T,S,V} <: AbstractPoisson{T,S,V}
     ml   :: MultiLevelPoisson{T,S,V}
     ω    :: NTuple
     tar  :: NTuple
     ftar :: AbstractVector
-    x₀   :: AbstractArray
+    p    :: AbstractArray
     fmm  :: Bool
     function BiotSavartPoisson(flow; nonbiotfaces=(), fmm=true, mem=Array)
         ml = MultiLevelPoisson(flow.p, flow.μ₀, flow.σ; perdir=flow.perdir)
         ω  = MLArray(flow.f)   # top level aliases flow.f — no copy
         tar  = mem.(collect_targets(ω, nonbiotfaces))
         ftar = flatten_targets(tar)
-        x₀   = copy(flow.p)
-        new{eltype(flow.p),typeof(flow.p),typeof(flow.μ₀)}(ml,ω,tar,ftar,x₀,fmm)
+        p   = copy(flow.p)
+        new{eltype(flow.p),typeof(flow.p),typeof(flow.μ₀)}(ml,ω,tar,ftar,p,fmm)
     end
 end
 WaterLily.update!(b::BiotSavartPoisson) = WaterLily.update!(b.ml)
 
-# project using Biot-Savart BCs
-import WaterLily: Vcycle!,smooth!
-function WaterLily.mom_project!(a::WaterLily.AbstractFlow, b::BiotSavartPoisson, w, t, tol=1e-4,itmx=32)
-    dt = w*a.Δt[end]; a.p .*= dt  # Scale p *= w*Δt
+"""
+    mom_project!(a::AbstractFlow, b::BiotSavartPoisson, w, t; tol=1e-4, itmx=32)
 
-    apply_grad_p!(a.u,b.ω,a.p,a.μ₀)                       # Apply u-=μ₀∇p & ω=∇×u
-    b.x₀ .= a.p; fill!(a.p,0)                            # x₀ holds p solution
-    biotBC!(a.u,a.uBC,b.ω,b.tar,b.ftar,t;fmm=b.fmm)    # Apply domain BCs with fresh ω
+Custom project method for Biot-Savart BCs. Solves for pressure with a multigrid V-cycle, applying biot_BC! to update the boundary velocity and residual at each iteration.
+Note: a.p is used as the incremental pressure solution for each V-cycle, while b.p accumulates the total pressure solution.
+"""
+function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w, t, tol=1e-4,itmx=32) where N
+    dt = w*a.Δt[end]; a.p .*= dt  # Scale p *= w*Δt
+    U = BCTuple(a.uBC,t,N)        # BC tuple for current time step
+    b.p .= 0; project_update!(a,b)                              # Project out initial μ₀∇p
+    fill_ω!(b.ω,a.u); biotBC!(a.u,U,b.ω,b.tar,b.ftar;fmm=b.fmm) # Apply domain BCs with fresh ω
 
     # Set residual
-    p = b.ml.levels[1]; p.r .= 0
-    @inside p.r[I] = ifelse(p.iD[I]==0,0,WaterLily.div(I,a.u))
-    fix_resid!(p.r,a.u,b.tar[1]) # only fix on the boundaries
+    top = b.ml.levels[1]; top.r .= 0
+    @inside top.r[I] = ifelse(top.iD[I]==0,0,WaterLily.div(I,a.u))
+    fix_resid!(top.r,a.u,b.tar[1]) # only fix on the boundaries
 
-    nᵖ,nᵇ,r₂ = 0,0,L₂(p)
-    @log ", $nᵖ, $(WaterLily.L∞(p)), $r₂, $nᵇ\n"
+    nᵖ,nᵇ,r₂ = 0,0,L₂(top)
+    @log ", $nᵖ, $(WaterLily.L∞(top)), $r₂, $nᵇ\n"
     while nᵖ<itmx
+        # V-cycle with fixed BCs until the residual drops >10x
         rtol = max(tol,0.1r₂)
         while nᵖ<itmx
-            Vcycle!(b.ml); smooth!(p)
-            r₂ = L₂(p); nᵖ+=1
+            WaterLily.Vcycle!(b.ml); WaterLily.smooth!(top)
+            r₂ = L₂(top); nᵖ+=1
             r₂<rtol && break
         end
-        apply_grad_p!(a.u,b.ω,a.p,a.μ₀)          # Update u,ω
-        b.x₀ .+= a.p; fill!(a.p,0)               # Update solution
-        biotBC_r!(p.r,a.u,a.uBC,b.ω,b.tar,b.ftar,t;fmm=b.fmm) # Update BC+residual
-        r₂ = L₂(p); nᵇ+=1
-        @log ", $nᵖ, $(WaterLily.L∞(p)), $r₂, $nᵇ\n"
+        # Update the BCs with Biot-Savart (which requires updating u,p,ω) and repeat until convergence
+        project_update!(a,b) # Update u,p
+        fill_ω!(b.ω,a.u); biotBC_r!(top.r,a.u,U,b.ω,b.tar,b.ftar;fmm=b.fmm) # Update BC+residual
+        r₂ = L₂(top); nᵇ+=1
+        @log ", $nᵖ, $(WaterLily.L∞(top)), $r₂, $nᵇ\n"
         r₂<tol && break
     end
     push!(b.ml.n,nᵖ)
-    pflowBC!(a.u)        # Update ghost BCs (domain is already correct)
-    a.p .= b.x₀/dt       # copy-scaled pressure solution
+    pflowBC!(a.u)     # Update ghost BCs (domain is already correct)
+    a.p .= b.p/dt     # rescale pressure solution and copy to Flow
 end
+BCTuple(f::Function,t::T,N) where T = ntuple(i->f(i,zero(SVector{N,T}),t),N)
+BCTuple(f::Tuple,t,N) = f
 
-# Apply u-=μ₀∇p & ω=∇×u
-function apply_grad_p!(u,ω,p,μ₀)
-    @loop u[Ii] -= μ₀[Ii]*∂(last(Ii),front(Ii),p) over Ii ∈ inside_u(u)
-    fill_ω!(ω,u)
+# Apply u-=μ₀∇p & accumulate p
+function project_update!(a::AbstractFlow, b::BiotSavartPoisson)
+    @loop a.u[Ii] -= a.μ₀[Ii]*∂(last(Ii),front(Ii),a.p) over Ii ∈ inside_u(a.u)
+    b.p .+= a.p; fill!(a.p,0) # accumulate total pressure solution, reset increment
 end
