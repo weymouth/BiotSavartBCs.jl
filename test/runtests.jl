@@ -154,10 +154,10 @@ using BiotSavartBCs: slice
     @test maximum(abs,(u.-u₀)[3:end-2,1,2])<0.003 # normal
 end
 
-@testset "flow.jl" begin
-    circ(D,U=1,m=2D) = BiotSimulation((m,m), (U,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=U*D/1e4)
+@testset "BiotSavartPoisson.jl" begin
+    circ(D;fmm,U=1,m=2D) = BiotSimulation((m,m), (U,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=U*D/1e4,fmm)
     for fmm in (true,false)
-        sim = circ(256)
+        sim = circ(256;fmm)
         sim_step!(sim;remeasure=false)
         u_max = maximum(sim.flow.u[:,:,1])
         v_max = maximum(sim.flow.u[:,:,2])
@@ -167,14 +167,13 @@ end
         @test abs(v_max-1)<0.02 # circle v_max = 1
         @test abs(u_inf-0.75)<0.02 # upstream slow down
         @time sim_step!(sim;remeasure=false)
-        @show sim.pois.n
-        sim.pois.n[end] = -1 # setproperty!
-        @test sim.pois.n[end] == -1
+        @show sim.pois.ml.n
+        @test !isempty(sim.pois.ml.n) # iteration count recorded after step
     end
 
-    sphere(D,m=3D÷2) = BiotSimulation((m,m,m), (1,0,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=D/1e4)
+    sphere(D;fmm,m=3D÷2) = BiotSimulation((m,m,m), (1,0,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=D/1e4,fmm)
     for fmm in (true,false)
-        sim = sphere(128)
+        sim = sphere(128;fmm)
         sim_step!(sim;remeasure=false)
         u_max = maximum(sim.flow.u[:,:,:,1])
         v_max = maximum(sim.flow.u[:,:,:,2:3])
@@ -184,6 +183,6 @@ end
         @test abs(v_max-0.75)<0.035   # v,w_max = 3/4
         @test abs(u_inf-19/27)<0.033  # upstream slow down
         @time sim_step!(sim;remeasure=false)
-        @show sim.pois.n
+        @show sim.pois.ml.n
     end
 end
