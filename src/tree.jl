@@ -30,4 +30,7 @@ Base.@propagate_inbounds @fastmath function tree(ml,Ti::CartesianIndex{Np1}) whe
 end
 
 # Biot-Savart BC using the tree sum
-treeBC!(ml,targets) = @vecloop ml[1][Ii]=tree(ml,Ii) over Ii ∈ targets
+treeBC!(ml,targets,::Tuple{},nimages=0) = @vecloop ml[1][Ii]=tree(ml,Ii) over Ii ∈ targets
+function treeBC!(ml,targets,perdir,nimages=0)
+    @vecloop ml[1][Ii]=tree(ml,Ii)+_periodic_sum(last(ml),Ii,perdir,nimages,lastindex(ml),size_u(first(ml))[1]) over Ii ∈ targets
+end
