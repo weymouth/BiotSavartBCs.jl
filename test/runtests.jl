@@ -3,6 +3,9 @@ using Test
 using WaterLily
 
 using BiotSavartBCs: @vecloop,inside_u,restrict!,project!,down,front,step
+using BiotSavartBCs: _periodic_sum,weighted,shifted
+
+using StaticArrays
 @testset "util.jl" begin
     a = zeros(Int,(4,4,6,3))
     @vecloop a[I] += 1 over I in inside_u(a,buff=2)
@@ -27,7 +30,7 @@ using BiotSavartBCs: @vecloop,inside_u,restrict!,project!,down,front,step
     Ti = last(tar[2])
     T,i = front(Ti),last(Ti)
     @test CartesianIndex(down(T),i)==last(tar[3])
-    
+
     @vecloop ml[3][I] += 16 over I in tar[3]
     project!(ml,tar)
     @test ml[2][Ti] == 4
@@ -48,7 +51,7 @@ using BiotSavartBCs: @vecloop,inside_u,restrict!,project!,down,front,step
     Ti = last(tar[2])
     T,i = front(Ti),last(Ti)
     @test CartesianIndex(down(T),i)==last(tar[3])
-    
+
     @vecloop ml[3][I] += 4 over I in tar[3]
     project!(ml,tar)
     @test ml[2][Ti] == 2
@@ -142,7 +145,7 @@ using BiotSavartBCs: slice
     biotBC!(u,U,ω,tar,ftar;fmm=true) # fix domain velocities
     @test maximum(abs,(u.-u₀)[2:end,2:end-1,1])<0.028
     @test maximum(abs,(u.-u₀)[2:end-1,2:end,2])<0.025
-    
+
     BC!(u,U) # mess up boundaries
     biotBC!(u,U,ω,tar,ftar;fmm=false) # fix domain velocities
     @test maximum(abs,(u.-u₀)[2:end,2:end-1,1])<0.0063 # No target interpolation error
@@ -185,4 +188,85 @@ end
         @time sim_step!(sim;remeasure=false)
         @show sim.pois.ml.n
     end
+
+    # Spanwise-periodic cylinder: stagnation velocity should match 2D result
+    cyl_span(D;fmm=true,m=2D,Lz=D÷2) = BiotSimulation((m,m,Lz),(1,0,0),D;
+                                                      body=AutoBody((x,t)->√sum(abs2,(x.-m/2)[1:2])-D/2),
+                                                      ν=D/1e4,fmm,perdir=(3,),nimages=4)
+    for fmm in (true,false)
+        sim = cyl_span(128;fmm)
+        sim_step!(sim;remeasure=false)
+        u_max = maximum(sim.flow.u[:,:,:,1])
+        v_max = maximum(sim.flow.u[:,:,:,2])
+        u_inf = minimum(sim.flow.u[1,:,:,1])
+        @show fmm,u_max,v_max,u_inf
+        @test abs(u_max-2)<0.15 # 2D cylinder stagnation: u_max = 2 (loose tol: 3D first-step accuracy)
+        @test abs(v_max-1)<0.05 # circle v_max = 1
+        @test abs(u_inf-0.75)<0.10 # upstream slow down
+        @show sim.pois.ml.n
+        @test !isempty(sim.pois.ml.n)
+    end
+end
+
+@testset "periodic BCs" begin
+    # collect_targets excludes periodic faces
+    ml = MLArray(zeros(Float32,10,10,18,3))
+    tar   = collect_targets(ml)
+    tar_p = collect_targets(ml,(),(3,))
+    @test !any(T->last(T)==3, tar_p[1])                         # no z-direction targets
+    @test length(tar_p[1]) == length(tar[1]) - 2*(10-2)*(10-2) # correct count
+
+    # periodicBC! sets ghost cells to match the opposing interior face (perBC! for vector fields)
+    using BiotSavartBCs: periodicBC!
+    N=10; u = randn(Float32,N,N,N,3)
+    periodicBC!(u,(3,))
+    @test u[:,:,1,:] == u[:,:,N-1,:]   # lower ghost = upper interior
+    @test u[:,:,N,:] == u[:,:,2,:]     # upper ghost = lower interior
+
+    # pflowBC! leaves periodic ghost cells untouched (WaterLily owns them)
+    u2 = randn(Float32,N,N,N,3)
+    z_lo,z_hi = copy(u2[:,:,1,:]),copy(u2[:,:,N,:])
+    pflowBC!(u2,(3,))
+    @test u2[:,:,1,:] == z_lo
+    @test u2[:,:,N,:] == z_hi
+
+    # _periodic_sum matches a direct brute-force image sum
+    dims = (10,10,10); ω = zeros(Float32,dims...,3); ω[5,5,5,3] = 1f0
+    L = Float32(dims[3]-2); ep = SVector{3,Float32}(0,0,1)
+    Ti = CartesianIndex(1,7,5,1); T,i = front(Ti),last(Ti)
+    x  = shifted(T,i) + SVector{3,Float32}(T.I...) .- 1.5f0
+    xS = SVector{3,Float32}(5,5,5) .- 1.5f0
+    r  = x-xS; nimages = 3
+    expected = sum(1:nimages) do n
+        nLep = Float32(n)*L*ep
+        weighted(r-nLep,CartesianIndex(5,5,5),i,ω) + weighted(r+nLep,CartesianIndex(5,5,5),i,ω)
+    end
+    @test _periodic_sum(ω,Ti,(3,),nimages,1,dims) ≈ expected
+
+    # z-uniform ω: periodic images reduce spurious z-variation at x-face boundaries
+    pow=4; N2=2+2^pow; Lz=8
+    u2 = Array{Float32}(undef,(N2,N2,2)); apply!(lamb_dipole(N2),u2)
+    u3 = zeros(Float32,N2,N2,Lz,3)
+    for k in 1:Lz; u3[:,:,k,1].=u2[:,:,1]; u3[:,:,k,2].=u2[:,:,2]; end
+    ω3 = MLArray(zeros(Float32,N2,N2,Lz,3)); fill_ω!(ω3,u3); U3 = (1,0,0)
+
+    # without periodic images: z-variation due to domain-edge effects
+    tar3  = collect_targets(ω3);         ftar3  = flatten_targets(tar3)
+    BC!(u3,U3); biotBC!(u3,U3,ω3,tar3,ftar3;fmm=false)
+    z_var = abs(u3[2,N2÷2,2,1]-u3[2,N2÷2,Lz-1,1])
+
+    # with periodic images: images from outside the domain cancel the edge effect
+    tar3p = collect_targets(ω3,(),(3,)); ftar3p = flatten_targets(tar3p)
+    BC!(u3,U3); biotBC!(u3,U3,ω3,tar3p,ftar3p,(3,),8;fmm=false)
+    z_var_p = abs(u3[2,N2÷2,2,1]-u3[2,N2÷2,Lz-1,1])
+    @test z_var_p < z_var/4
+
+    # After mom_project!, periodic ghost cells must be fresh.
+    # Without periodicBC! at the end of mom_project!, pflowBC! skips perdir and
+    # ghosts remain stale, causing spurious div(u) in the next step.
+    sim2d = BiotSimulation((16,16),(1,0),8; perdir=(2,), ν=0.01)
+    sim_step!(sim2d; remeasure=false)
+    u = sim2d.flow.u
+    @test u[:,1,:] == u[:,end-1,:]  # lower ghost = upper interior
+    @test u[:,end,:] == u[:,2,:]    # upper ghost = lower interior
 end
