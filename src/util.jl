@@ -65,7 +65,7 @@ end
 using Base.Iterators
 slice(dims::NTuple{N},i,s) where N = CartesianIndices((ntuple( k-> k==i ? (s:s) : (2:dims[k]-1), N-1)...,(i:i)))
 faces(dims::NTuple{N},off) where N = flatmap(i->flatmap(s->slice(dims,i,s), ((-i∈off ? () : (1,))...,(i∈off ? () : (dims[i],))...)),1:N-1)
-collect_targets(ω,off=()) = map(ωᵢ->collect(faces(size(ωᵢ),off)),ω)
+collect_targets(ω,off=(),perdir=()) = map(ωᵢ->collect(faces(size(ωᵢ),(off...,perdir...,(-).(perdir)...))),ω)
 flatten_targets(targets) = mapreduce(((level,targets),)->map(T->(level,T),targets),vcat,enumerate(targets))
 
 # generates the image of target T in the direction dir
