@@ -1,5 +1,4 @@
-# nohup julia --project=. kirigamiFalling.jl &> kirigami_out_010302026.log &
-using WaterLily,BiotSavartBCs,CUDA,StaticArrays
+using WaterLily,BiotSavartBCs,CUDA,StaticArrays,TypedTables
 
 # Biot-Savart momentum step with U and acceleration prescribed
 import WaterLily: scale_u!,conv_diff!,udf!,BDIM!,CFL
@@ -47,20 +46,25 @@ end
 import BiotSavartBCs: interaction,symmetry,image
 @inline function symmetry(ω,T,args...) # overwrite to add image influences
     T₃,sgn₃ = image(T,size(ω),-3)  # image target and sign in z
-    # Add up the four contributions
+    # Add up the two contributions
     return interaction(ω,T,args...)+sgn₃*interaction(ω,T₃,args...)
 end
 
 drag!(sim,times,R=sim.L,x₀=SA[R,0,0];remeasure=false) = map(times) do t
     @show t; flush(stdout)
     sim_step!(sim,t;remeasure)
-    Cd,Cl = -8WaterLily.total_force(sim)[1:2]/R^2
-    Cm = 8WaterLily.pressure_moment(x₀,sim)[3]/R^3
+    Cd,Cl = -4WaterLily.total_force(sim)[1:2]/R^2
+    Cm = 4WaterLily.pressure_moment(x₀,sim)[3]/R^3
     (;t,Cd,Cl,Cm)
 end |> Table
 
+# inertia
+@inline Izz(R₀,R₁,m) = 1/4*m*(R₁^2+R₀^2) # moment of inertia of a ring about its diameter
+@inline mass(R₀,R₁,t,ρ) = 2π*ρ*t*(R₁-R₀) # mass of a ring
+@inline I₆₆(R₀,R₁,t,ρ,x₀) = Izz(R₀,R₁,mass(R₀,R₁,t,ρ)) + mass(R₀,R₁,t,ρ)*x₀^2 # moment of inertia of a ring about its center
+
 # measures the added-mass of the body, which is needed to update the acceleration in freefalling!
-function compute_paramaters!(N,H,θ₀,ρ;R=2N/3,mem=CuArray,T=Float32)
+function compute_paramaters!(N,H,θ₀,ρ;rings=16,R=2N/3,mem=CuArray,T=Float32)
     # longitudinal added mass
     sim = kirigami(N;R,T,mem,H=H,fall=false,θ₀=0.0,dims=(3N,3N,3N÷2),dir=1)
     sim_step!(sim;remeasure=false)
@@ -71,32 +75,37 @@ function compute_paramaters!(N,H,θ₀,ρ;R=2N/3,mem=CuArray,T=Float32)
     m₂₂ = -2WaterLily.pressure_force(sim)[2]/(R+1/2+1/T(√2))^2
     # rotational added-mass
     sim = kirigami(N;R,T,mem,H=H,fall=true,θ₀=0.f0,dims=(3N,3N,3N÷2))
-    # angular acceleration is not constant, so we just measure the moment at t=0 and 
+    # angular acceleration is not constant, so we just measure the moment at t=0 and
     # assume it is all due to added mass (not exact but should be close for small θ₀)
     α=1.0; ω=α*sim.flow.Δt[end]; θ=θ₀+ω*sim.flow.Δt[end];
     sim.body = setmap(sim.body;θ=SA{Float32}[0,0,θ],ω=SA{Float32}[0,0,ω])
     sim_step!(sim;remeasure=true)
     Xₘ = H==0 ? sim.body.map.x₀ : sim.body.a.b.map.x₀
-    m₆₆ = 2WaterLily.pressure_moment(Xₘ,sim)[3]/(R+1/2+1/T(√2))^2
-    # measure mass and moment of inertia of the body itself
+    m₆₆ = 2WaterLily.pressure_moment(Xₘ,sim)[3]
+    c₂₆ = -2WaterLily.pressure_force(sim)[2]
+    # measure the volume, mass
     apply!((x)->-x[1],sim.flow.p)
     m = -2WaterLily.pressure_force(sim)[1]
-    I =  2WaterLily.pressure_moment(Xₘ,sim)[3]
+    # measure mass and moment of inertia of the body itself
+    δR = R/rings; δH = R*H/rings^2;
+    I = sum(i -> I₆₆(δR*(i-1), δR*i, 1+2/√2, ρ, δH*i^2-δH*(i-1)^2), 1:rings)
     # update params
     return (m=ρ*m,                                # mass of body
             g=SA{Float32}[-U^2/R,0,0],            # gravity in lab frame
             mₐ=SA{Float32}[m₁₁*R^3, m₂₂*R^3, 0],  # added mass in body frame
-            Iₘ=ρ*I*R,                             # moment of inertia of body
-            Iₐ=m₆₆*R^2,                           # added moment of inertia
+            Iₘ=ρ*I/2.f0, Iₐ=m₆₆,                  # added moment of inertia
             θ=θ₀, ω=0.f0, α=0.f0)
 end
 
-#helper to rotate a vector
+# helper to rotate a vector
 @inline @fastmath rotate(v,θ::T) where T = SA{T}[cos(θ) -sin(θ) 0; sin(θ) cos(θ) 0; 0 0 1]*v
 
 function freefalling!(sim,times,state,Xₘ;R=sim.L,g=state.g,X₀=zero(g),vel=zero(g),acc=zero(g),
                       θ=state.θ,ω=state.ω,α=state.α,m=state.m,Iₘ=state.Iₘ,Iₐ=state.Iₐ,
                       mₐ=state.mₐ,save=false)
+    vtk_motion(a::AbstractSimulation) = (a.flow.f .= 0; a.flow.f[:,:,:,1] .= X₀[1];
+                                         a.flow.f[:,:,:,2] .= X₀[2]; a.flow.f |> Array)
+    save && (writer = vtkWriter("kirigami_N$(N)_H$(H)_fall"; attrib=Dict("u"=>vtk_u,"ω"=>vtk_ω,"λ₂"=>vtk_λ₂,"d"=>vtk_d,"motion"=>vtk_motion)))
     data = NamedTuple[] # store data
     for t in times
         while sim_time(sim) < t
@@ -118,7 +127,6 @@ function freefalling!(sim,times,state,Xₘ;R=sim.L,g=state.g,X₀=zero(g),vel=ze
             measure!(sim)
             biot_mom_step_fall!(sim;udf=fall!,acceleration=-acc,U=-vel)
         end
-        # (abs(θ) > 2π÷3) && break # stop if it flips over, not sure how to handle that yet
         maximum(abs, vel) > 10U && break # stop if it goes out of control, probably numerical instability at that point
         save && save!(writer,sim)
         println("tU/L=",round(t,digits=4),", Δt=",round(sim.flow.Δt[end],digits=3),
@@ -129,6 +137,7 @@ function freefalling!(sim,times,state,Xₘ;R=sim.L,g=state.g,X₀=zero(g),vel=ze
         Cm = 4WaterLily.pressure_moment(Xₘ,sim)[3]/R^3
         push!(data, (;t,Cd,Cl,Cm,u₁=vel[1],u₂=vel[2],a₁=acc[1],a₂=acc[2],θ,ω,α))
     end
+    save && close(writer)
     return Table(data)
 end
 
@@ -138,20 +147,42 @@ import WaterLily: @loop,ω,λ₂
 vtk_ω(a::AbstractSimulation) = (@loop a.flow.f[I,:] .= ω(I,a.flow.u) over I in inside(a.flow.p); a.flow.f |> Array)
 vtk_d(a::AbstractSimulation) = (measure_sdf!(a.flow.σ,a.body,WaterLily.time(a)); a.flow.σ |> Array)
 vtk_λ₂(a::AbstractSimulation) = (@inside a.flow.σ[I] = λ₂(I,a.flow.u); a.flow.σ |> Array)
+vtk_u(a::AbstractSimulation) = a.flow.u |> Array
 
 # free falling
-using TypedTables,JLD2,Plots
 N = 2^7; times = 0.2:0.05:20.0
-θ₀=0.2f0; H=2.0; ρ=10.f0; R=2N/3.f0; U=1.f0 # only values H ∈ [0,1]
+θ₀=0.4f0; H=0.25; ρ=10.f0; R=2N/3.f0; U=1.f0 # only values H ∈ [0,1]
 
-# single run
-# compute real added mass and added-inertial for the body
-# params = compute_paramaters!(N,H,θ₀,ρ;R,mem=CuArray,T=Float32)
-# sim = kirigami(N;mem=CuArray,H=H,fall=true,θ₀);
-# Xₘ = sim.body.a.b.map.x₀ # moment point in lab frame
-# writer = vtkWriter("kirigami_N$(N)_H$(H)_fall"; attrib=Dict("ω"=>vtk_ω,"λ₂"=>vtk_λ₂,"d"=>vtk_d))
-# data = freefalling!(sim,times,params,Xₘ;save=false)
-# close(writer)
+# single run, compute real added mass and added-inertial for the body
+params = compute_paramaters!(N,H,θ₀,ρ;R,mem=CuArray,T=Float32)
+sim = kirigami(N;mem=CuArray,H=H,fall=true,θ₀);
+Xₘ = sim.body.a.b.map.x₀ # moment point in lab frame
+writer = vtkWriter("kirigami_N$(N)_H$(H)_fall"; attrib=Dict("ω"=>vtk_ω,"λ₂"=>vtk_λ₂,"d"=>vtk_d,"motion"=>vtk_motion))
+data = freefalling!(sim,times,params,Xₘ;save=true)
+close(writer)
+
+# measure Ia and mₐ for different H, which we will need to update the acceleration in freefalling!
+ρ = 10.f0; N = 2^7; R=2N/3.f0
+params_all = []
+for H in (0.0,0.25,0.5,1.0,2.0,4.0)
+    # measure every time H changes
+    params = compute_paramaters!(N,H,0,ρ;R,mem=CuArray,T=Float32)
+    push!(params_all, params)
+end; save_object("kirigami_parameters.jld2",params_all)
+
+# H sweep at angle of attack
+using Plots,JLD2
+N = 2^7; θ₀=0.1f0; R=2N/3.f0; U=1.f0
+times = 0.01:0.01:30.0
+for H in (0.0,0.25,0.5,1.0,2.0,4.0)
+    @show H; flush(stdout)
+    sim = kirigami(N;mem=CuArray,H,fall=false,θ₀,dims=(6N,3N,3N÷2));
+    Xₘ = H==0 ? sim.body.map.x₀ : sim.body.a.b.map.x₀ # moment point in lab frame
+    data = drag!(sim,times,R,Xₘ) # run
+    save_object("kirigami_N$(N)_H$(H)_AoA_fall.jld2",data)
+    writer = vtkWriter("kirigami_N$(N)_H$(H)_AoA_fall"; attrib=Dict("ω"=>vtk_ω,"λ₂"=>vtk_λ₂,"d"=>vtk_d))
+    save!(writer,sim); close(writer)
+end
 
 # domain sweep
 θ₀ = 0.2f0; H = 1.f0

@@ -1,7 +1,7 @@
 using WaterLily,StaticArrays,CUDA,BiotSavartBCs,WriteVTK
 using JLD2
 
-y⁺(a::AbstractSimulation) = √(0.026/(2*(sim.L*sim.U/sim.flow.ν)^(1/7)))/sim.flow.ν
+y⁺(a::AbstractSimulation) = √(0.026/(2*(a.L*a.U/a.flow.ν)^(1/7)))/a.flow.ν
 function make_sim_acc(; N=128, R=32, a=0.5, U=1, Re=1e3, mem=Array, use_biotsavart=false)
     disk(x,t) = (z=x-SA[-R,0,0].-N/2; y=z.-SA[0,clamp(z[2],-R,R),clamp(z[3],-R,R)]; √sum(abs2,y)-1.5)
     Ut(i,t::T) where T = i==1 ? convert(T,min(a*t/R,U)) : zero(T) # velocity BC
@@ -12,11 +12,11 @@ end
 
 # make a writer with some attributes, need to output to CPU array to save file (|> Array)
 import WaterLily: @loop,ω,λ₂
-vort(a) = (@loop sim.flow.f[I,:] .= ω(I,sim.flow.u) over I in inside(sim.flow.p); a.flow.f |> Array)
-_body(a) = (measure_sdf!(a.flow.σ, a.body, WaterLily.time(a)); a.flow.σ |> Array)
-lamda(a) = (@inside a.flow.σ[I] = λ₂(I, a.flow.u); a.flow.σ |> Array)
+vtk_ω(a::AbstractSimulation) = (@loop a.flow.f[I,:] .= ω(I,a.flow.u) over I in inside(a.flow.p); a.flow.f |> Array)
+vtk_d(a::AbstractSimulation) = (measure_sdf!(a.flow.σ, a.body, WaterLily.time(a)); a.flow.σ |> Array)
+vtk_λ₂(a::AbstractSimulation) = (@inside a.flow.σ[I] = λ₂(I, a.flow.u); a.flow.σ |> Array)
 
-custom_attrib = Dict("ω"=>vort, "b"=>_body, "λ₂"=>lamda)
+custom_attrib = Dict("ω"=>vtk_ω, "λ₂"=>vtk_λ₂, "d"=>vtk_d)
 # make the writer
 writer = vtkWriter("Disk_high_Re_3"; attrib=custom_attrib,
                    dir="vtk_data")
