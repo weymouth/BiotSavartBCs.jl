@@ -23,9 +23,9 @@ function pflowBC!(u,perdir=())
         i ∈ perdir && continue
         for j ∈ 1:n # Tangential direction ghosts, curl=0
             j==i && continue
-            if j ∈ perdir # periodic j: skip irrotational correction (avoids writing to z-ghost corners)
-                @loop u[I,j] = u[I+δ(i,I),j] over I ∈ slice_u(N,i,j,1)
-                @loop u[I,j] = u[I-δ(i,I),j] over I ∈ slice_u(N,i,j,N[i])
+            if j ∈ perdir # periodic j: skip ghost positions (WaterLily owns them via perBC!)
+                @loop u[I,j] = u[I+δ(i,I),j] over I ∈ slice_u_int(N,i,j,1)
+                @loop u[I,j] = u[I-δ(i,I),j] over I ∈ slice_u_int(N,i,j,N[i])
             else
                 @loop u[I,j] = u[I+δ(i,I),j] - edge(I,j,∂(j,CartesianIndex(I+δ(i,I),i),u)) over I ∈ slice_u(N,i,j,1)
                 @loop u[I,j] = u[I-δ(i,I),j] + edge(I,j,∂(j,CartesianIndex(I,i),u)) over I ∈ slice_u(N,i,j,N[i])
@@ -35,6 +35,8 @@ function pflowBC!(u,perdir=())
     end
 end
 slice_u(N::NTuple{n},i,j,s) where n = CartesianIndices(ntuple(k-> k==i ? (s:s) : k==j ? (2:N[k]) : (2:N[k]-1),n))
+# Like slice_u but j-range is 2:N[j]-1 (excludes ghost), used for periodic j in pflowBC!
+slice_u_int(N::NTuple{n},i,j,s) where n = CartesianIndices(ntuple(k-> k==i ? (s:s) : (2:N[k]-1),n))
 
 # Biot-Savart BCs
 function biotBC!(u,U,ml,targets,flat_targets,perdir=(),nimages=0;fmm=true)

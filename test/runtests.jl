@@ -3,7 +3,6 @@ using Test
 using WaterLily
 
 using BiotSavartBCs: @vecloop,inside_u,restrict!,project!,down,front,step
-using BiotSavartBCs: _periodic_sum,weighted,shifted
 
 using StaticArrays
 @testset "util.jl" begin
@@ -189,17 +188,16 @@ end
         @show sim.pois.ml.n
     end
 
-    # Spanwise-periodic cylinder: stagnation velocity should match 2D result
-    cyl_span(D;fmm=true,m=2D,Lz=D÷2) = BiotSimulation((m,m,Lz),(1,0,0),D;
-                                                      body=AutoBody((x,t)->√sum(abs2,(x.-m/2)[1:2])-D/2),
-                                                      ν=D/1e4,fmm,perdir=(3,),nimages=4)
-    for fmm in (true,false)
-        sim = cyl_span(128;fmm)
+    # Spanwise-periodic cylinder: stagnation velocity should match 2D result (fmm=true only; tree has no periodic support)
+    cyl_span(D;m=2D,Lz=D÷2) = BiotSimulation((m,m,Lz),(1,0,0),D;
+                                              body=AutoBody((x,t)->√sum(abs2,(x.-m/2)[1:2])-D/2),
+                                              ν=D/1e4,fmm=true,perdir=(3,),nimages=4)
+    let sim = cyl_span(128)
         sim_step!(sim;remeasure=false)
         u_max = maximum(sim.flow.u[:,:,:,1])
         v_max = maximum(sim.flow.u[:,:,:,2])
         u_inf = minimum(sim.flow.u[1,:,:,1])
-        @show fmm,u_max,v_max,u_inf
+        @show u_max,v_max,u_inf
         @test abs(u_max-2)<0.15 # 2D cylinder stagnation: u_max = 2 (loose tol: 3D first-step accuracy)
         @test abs(v_max-1)<0.05 # circle v_max = 1
         @test abs(u_inf-0.75)<0.10 # upstream slow down
@@ -230,19 +228,6 @@ end
     @test u2[:,:,1,:] == z_lo
     @test u2[:,:,N,:] == z_hi
 
-    # _periodic_sum matches a direct brute-force image sum
-    dims = (10,10,10); ω = zeros(Float32,dims...,3); ω[5,5,5,3] = 1f0
-    L = Float32(dims[3]-2); ep = SVector{3,Float32}(0,0,1)
-    Ti = CartesianIndex(1,7,5,1); T,i = front(Ti),last(Ti)
-    x  = shifted(T,i) + SVector{3,Float32}(T.I...) .- 1.5f0
-    xS = SVector{3,Float32}(5,5,5) .- 1.5f0
-    r  = x-xS; nimages = 3
-    expected = sum(1:nimages) do n
-        nLep = Float32(n)*L*ep
-        weighted(r-nLep,CartesianIndex(5,5,5),i,ω) + weighted(r+nLep,CartesianIndex(5,5,5),i,ω)
-    end
-    @test _periodic_sum(ω,Ti,(3,),nimages,1,dims) ≈ expected
-
     # z-uniform ω: periodic images reduce spurious z-variation at x-face boundaries
     pow=4; N2=2+2^pow; Lz=8
     u2 = Array{Float32}(undef,(N2,N2,2)); apply!(lamb_dipole(N2),u2)
@@ -250,16 +235,15 @@ end
     for k in 1:Lz; u3[:,:,k,1].=u2[:,:,1]; u3[:,:,k,2].=u2[:,:,2]; end
     ω3 = MLArray(zeros(Float32,N2,N2,Lz,3)); fill_ω!(ω3,u3); U3 = (1,0,0)
 
-    # without periodic images: z-variation due to domain-edge effects
-    tar3  = collect_targets(ω3);         ftar3  = flatten_targets(tar3)
-    BC!(u3,U3); biotBC!(u3,U3,ω3,tar3,ftar3;fmm=false)
-    z_var = abs(u3[2,N2÷2,2,1]-u3[2,N2÷2,Lz-1,1])
-
-    # with periodic images: images from outside the domain cancel the edge effect
+    # 3D spanwise-periodic Lamb dipole: for a z-uniform flow, biotBC! with perdir=(3,)
+    # must produce z-UNIFORM x,y face velocities (the defining property of a periodic BC).
     tar3p = collect_targets(ω3,(),(3,)); ftar3p = flatten_targets(tar3p)
-    BC!(u3,U3); biotBC!(u3,U3,ω3,tar3p,ftar3p,(3,),8;fmm=false)
-    z_var_p = abs(u3[2,N2÷2,2,1]-u3[2,N2÷2,Lz-1,1])
-    @test z_var_p < z_var/4
+    for k in 1:Lz; u3[:,:,k,1].=u2[:,:,1]; u3[:,:,k,2].=u2[:,:,2]; end
+    BC!(u3,U3); biotBC!(u3,U3,ω3,tar3p,ftar3p,(3,),4;fmm=true)
+    z_var_x = maximum(z->abs(u3[2,N2÷2,z,1]-u3[2,N2÷2,Lz÷2,1]), 3:Lz-2)
+    z_var_y = maximum(z->abs(u3[N2÷2,2,z,2]-u3[N2÷2,2,Lz÷2,2]), 3:Lz-2)
+    @test z_var_x < 0.01   # x-face is z-uniform to within 1%
+    @test z_var_y < 0.01   # y-face is z-uniform to within 1%
 
     # After mom_project!, periodic ghost cells must be fresh.
     # Without periodicBC! at the end of mom_project!, pflowBC! skips perdir and
@@ -269,4 +253,51 @@ end
     u = sim2d.flow.u
     @test u[:,1,:] == u[:,end-1,:]  # lower ghost = upper interior
     @test u[:,end,:] == u[:,2,:]    # upper ghost = lower interior
+end
+
+
+@testset "FMM per-level source count" begin
+    # Verify that interaction() at the ±L shifted target distributes sources across FMM
+    # levels: fine levels handle near-image sources (close to T±L), coarse levels handle
+    # the rest. With the old coarsest-only approach all sources were at the deepest level.
+    using BiotSavartBCs: inside, remaining, close, inR, size_u
+
+    # count sources that contribute to interaction(ω, T, l, depth)
+    function source_count(ω, T, l, depth)
+        domain = inside(size_u(ω)[1])
+        Router, Rinner = remaining(T, domain), close(T, domain)
+        l == depth && (Router = domain)
+        l == 1 ? length(inR(Router, inside(size_u(ω)[1], buff=2))) :
+                 count(S -> S ∉ Rinner, Router)
+    end
+
+    ml = MLArray(zeros(Float32,18,18,34,3)); restrict!(ml)
+    depth = lastindex(ml)
+
+    # use the actual FMM targets at each level
+    tar = collect_targets(ml,(),(3,)); ftar = flatten_targets(tar)
+
+    # pick one x-face target near the lower z-wall at each level
+    Ti_by_level = [first(T for (lv,T) in ftar if lv == l && last(T)==1 && front(T).I[3]<4)
+                   for l in 1:depth]
+
+    @info "Sources per level (primary vs n=1 image in z)"
+    for l in 1:depth
+        Ti = Ti_by_level[l]; T = front(Ti)
+        Nl = size_u(ml[l])[1]
+        nL = CartesianIndex(ntuple(k -> k==3 ? Nl[3]-2 : 0, 3))
+        T_img = T + nL
+        np = source_count(ml[l], T,     l, depth)
+        ni = source_count(ml[l], T_img, l, depth)
+        @info "  l=$l" primary=np image_n1=ni
+    end
+
+    # finest level must have sources for the near image (upper-wall sources close to T+L)
+    # — this is the key improvement over the old coarsest-only approach
+    T1 = front(Ti_by_level[1]); Nl1 = size_u(first(ml))[1]
+    nL1 = CartesianIndex(ntuple(k -> k==3 ? Nl1[3]-2 : 0, 3))
+    @test source_count(first(ml), T1+nL1, 1, depth) > 0
+
+    # every level contributes some sources (Router=domain at depth but Rinner still excluded)
+    @test all(l -> source_count(ml[l], front(Ti_by_level[l])+CartesianIndex(ntuple(k->k==3 ? size_u(ml[l])[1][3]-2 : 0,3)), l, depth) > 0, 1:depth)
 end
