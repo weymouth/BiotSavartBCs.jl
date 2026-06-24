@@ -233,7 +233,7 @@ end
     u2 = Array{Float32}(undef,(N2,N2,2)); apply!(lamb_dipole(N2),u2)
     u3 = zeros(Float32,N2,N2,Lz,3)
     for k in 1:Lz; u3[:,:,k,1].=u2[:,:,1]; u3[:,:,k,2].=u2[:,:,2]; end
-    ω3 = MLArray(zeros(Float32,N2,N2,Lz,3)); fill_ω!(ω3,u3); U3 = (1,0,0)
+    ω3 = MLArray(zeros(Float32,N2,N2,Lz,3)); fill_ω!(ω3,u3,(3,)); U3 = (1,0,0)
 
     # 3D spanwise-periodic Lamb dipole: for a z-uniform flow, biotBC! with perdir=(3,)
     # must produce z-UNIFORM x,y face velocities (the defining property of a periodic BC).
@@ -253,6 +253,32 @@ end
     u = sim2d.flow.u
     @test u[:,1,:] == u[:,end-1,:]  # lower ghost = upper interior
     @test u[:,end,:] == u[:,2,:]    # upper ghost = lower interior
+
+    # fill_ω! must use buff=1 along perdir: the periodic Biot-Savart source integrates the
+    # full period (indices 2:N-1), so the first interior vorticity layers (z=2, Nz-1) must be
+    # populated. buff=2 leaves them zero -> the source is incomplete (non-periodic).
+    # Reference: an exactly z-periodic (period P), z-VARYING field; the curl on one period
+    # must match the curl deep inside a tall multi-period domain (buff-insensitive there).
+    Nx=Ny=10; P=6; φ0=0.9f0
+    fx = Float32[sin(2π*(i-1)/Nx) for i in 1:Nx, j in 1:Ny]
+    fy = Float32[cos(2π*(j-1)/Ny) for i in 1:Nx, j in 1:Ny]
+    φz(k) = 2π*mod(k-2,P)/P + φ0   # period P; bit-identical at matching cells of either domain
+    build_u(Nz) = (v=zeros(Float32,Nx,Ny,Nz,3);
+        for k in 1:Nz; φ=φz(k)
+            v[:,:,k,1] .= fx.*sin(φ); v[:,:,k,2] .= fy.*cos(φ); v[:,:,k,3] .= (fx.+fy).*sin(φ)
+        end; v)
+    Nz_s = P+2                                                      # single period
+    u_s = build_u(Nz_s); ω_s = MLArray(zeros(Float32,Nx,Ny,Nz_s,3)); fill_ω!(ω_s,u_s,(3,))
+    Nz_t = 4P+2                                                     # four periods
+    u_t = build_u(Nz_t); ω_t = MLArray(zeros(Float32,Nx,Ny,Nz_t,3)); fill_ω!(ω_t,u_t) # buff=2 ok deep inside
+    xy = (3:Nx-2, 3:Ny-2)                                          # x,y interior (skip x,y buff zeros)
+    for k in 2:Nz_s-1                                              # shift one period into tall interior
+        @test ω_s[1][xy...,k,:] == ω_t[1][xy...,k+P,:]
+    end
+    @test maximum(abs, ω_s[1][xy...,2,:]) > 0.01                  # boundary layer genuinely nonzero
+    @test maximum(abs, ω_s[1][xy...,Nz_s-1,:]) > 0.01            # (so the match above isn't 0==0)
+    ω_b2 = MLArray(zeros(Float32,Nx,Ny,Nz_s,3)); fill_ω!(ω_b2,u_s)  # no perdir -> buff=2 in z (old path)
+    @test all(iszero, ω_b2[1][:,:,2,:]) && all(iszero, ω_b2[1][:,:,Nz_s-1,:])  # what the fix guards against
 end
 
 

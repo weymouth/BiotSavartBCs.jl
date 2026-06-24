@@ -44,8 +44,9 @@ function WaterLily.mom_project!(a::AbstractFlow{N},b::BiotSavartPoisson,w,t,tol=
     dt = w*a.Δt[end]; a.p .*= dt  # Scale p *= w*Δt
     U = BCTuple(a.uBC,t,N)        # BC tuple for current time step
     b.p .= 0; project_update!(a,b)                              # Project out initial μ₀∇p
-    fill_ω!(b.ω,a.u); biotBC!(a.u,U,b.ω,b.tar,b.ftar,b.perdir,b.nimages;fmm=b.fmm)
-    periodicBC!(a.u,b.perdir)   # project_update! staled z-ghosts; div(u) reads them below
+    periodicBC!(a.u,b.perdir)   # sync periodic ghosts so ω=∇×u is periodic where Biot-Savart sums images
+    fill_ω!(b.ω,a.u,b.perdir); biotBC!(a.u,U,b.ω,b.tar,b.ftar,b.perdir,b.nimages;fmm=b.fmm)
+    periodicBC!(a.u,b.perdir)   # biotBC! set domain faces; re-sync ghosts that div(u) reads below
 
     # Set residual
     top = b.ml.levels[1]; top.r .= 0
@@ -64,7 +65,8 @@ function WaterLily.mom_project!(a::AbstractFlow{N},b::BiotSavartPoisson,w,t,tol=
         end
         # Update the BCs with Biot-Savart (which requires updating u,p,ω) and repeat until convergence
         project_update!(a,b) # Update u,p
-        fill_ω!(b.ω,a.u); biotBC_r!(top.r,a.u,U,b.ω,b.tar,b.ftar,b.perdir,b.nimages;fmm=b.fmm)
+        periodicBC!(a.u,b.perdir)   # sync periodic ghosts so ω=∇×u is periodic before Biot-Savart image sum
+        fill_ω!(b.ω,a.u,b.perdir); biotBC_r!(top.r,a.u,U,b.ω,b.tar,b.ftar,b.perdir,b.nimages;fmm=b.fmm)
         r₂ = L₂(top); nᵇ+=1
         @log ", $nᵖ, $(WaterLily.L∞(top)), $r₂, $nᵇ\n"
         r₂<tol && break

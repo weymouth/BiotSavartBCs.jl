@@ -26,6 +26,12 @@ WaterLily.down(R::CartesianIndices) = down(first(R)):down(last(R))
 WaterLily.inside(ndims::NTuple{n};buff=1) where n = CartesianIndices(map(N->(1+buff:N-buff),ndims))
 inside_u(a;buff=1) = inside_u(size_u(a)[1],buff)
 inside_u(ndims::NTuple{n},buff) where n = CartesianIndices((map(N->(1+buff:N-buff),ndims)...,1:n))
+# Like inside_u but uses buff=1 along periodic directions: there is no wall there, so the
+# first interior vorticity layer is well-defined (needs periodic u-ghosts) and must be
+# included for the Biot-Savart image sum to see a genuinely periodic source field.
+inside_u(a,buff,perdir) = inside_u(size_u(a)[1],buff,perdir)
+inside_u(ndims::NTuple{n},buff,perdir) where n =
+    CartesianIndices((ntuple(k-> k in perdir ? (2:ndims[k]-1) : (1+buff:ndims[k]-buff), n)...,1:n))
 
 # Vector multi-level constructor (top level points to u, doesn't copy)
 using WaterLily: size_u
