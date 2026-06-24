@@ -2,13 +2,13 @@ module BiotSavartBCs
 
 using WaterLily
 
-include("util.jl")
+include("ka.jl")
+include("geom.jl")
+include("multilevel.jl")
 export MLArray,collect_targets,flatten_targets
 
 include("fmm.jl")
-
 include("tree.jl")
-
 include("velocity.jl")
 export fill_ω!,biotBC!,pflowBC!
 
