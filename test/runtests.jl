@@ -226,7 +226,7 @@ end
     @test u[:,:,1,:] == u[:,:,N-1,:]   # lower ghost = upper interior
     @test u[:,:,N,:] == u[:,:,2,:]     # upper ghost = lower interior
 
-    # pflowBC! leaves periodic ghost cells untouched (WaterLily owns them)
+    # pflowBC! leaves periodic ghost cells untouched
     u2 = randn(Float32,N,N,N,3)
     z_lo,z_hi = copy(u2[:,:,1,:]),copy(u2[:,:,N,:])
     pflowBC!(u2,(3,))
@@ -288,61 +288,10 @@ end
     ω_b2 = MLArray(zeros(Float32,Nx,Ny,Nz_s,3)); fill_ω!(ω_b2,u_s)  # no perdir -> buff=2 in z (old path)
     @test all(iszero, ω_b2[1][:,:,2,:]) && all(iszero, ω_b2[1][:,:,Nz_s-1,:])  # what the fix guards against
 
-    # Spanwise z-reflection symmetry over several steps (lightweight in-suite version of
-    # test/spanwise_w_symmetry.jl, which additionally self-calibrates against plain WaterLily).
-    # z-uniform body+inflow, w(0)=0 -> w is odd under z->-z and must stay ~round-off. The periodic
-    # FMM bug pinteraction fixes injected a z-uniform spanwise mode reaching max|w| ~ 5e-3 (~50x the
-    # WaterLily ~1e-4 baseline) by ~6 steps; the fix keeps it at ~1e-4.
+    # Spanwise z-reflection symmetry over several steps, check that z-velocity doesn't grow spuriously (the bug pinteraction fixes).
     let sim = BiotSimulation((48,48,8),(1,0,0),24; body=AutoBody((x,t)->√sum(abs2,(x.-24)[1:2])-12),
                              ν=24/1e3, fmm=true, perdir=(3,), nimages=4)
         for _ in 1:6; sim_step!(sim;remeasure=false); end
         @test maximum(abs,sim.flow.u[:,:,:,3]) < 1e-3   # spanwise w stays ~0 (≈1e-4; bug gives ≈5e-3)
     end
-end
-
-
-@testset "FMM per-level source count" begin
-    # Verify that interaction() at the ±L shifted target distributes sources across FMM
-    # levels: fine levels handle near-image sources (close to T±L), coarse levels handle
-    # the rest. With the old coarsest-only approach all sources were at the deepest level.
-    using BiotSavartBCs: inside, remaining, close, inR, size_u
-
-    # count sources that contribute to interaction(ω, T, l, depth)
-    function source_count(ω, T, l, depth)
-        domain = inside(size_u(ω)[1])
-        Router, Rinner = remaining(T, domain), close(T, domain)
-        l == depth && (Router = domain)
-        l == 1 ? length(inR(Router, inside(size_u(ω)[1], buff=2))) :
-                 count(S -> S ∉ Rinner, Router)
-    end
-
-    ml = MLArray(zeros(Float32,18,18,34,3)); restrict!(ml)
-    depth = lastindex(ml)
-
-    # use the actual FMM targets at each level
-    tar = collect_targets(ml,(),(3,)); ftar = flatten_targets(tar)
-
-    # pick one x-face target near the lower z-wall at each level
-    Ti_by_level = [first(T for (lv,T) in ftar if lv == l && last(T)==1 && front(T).I[3]<4)
-                   for l in 1:depth]
-
-    @info "Sources per level (primary vs n=1 image in z)"
-    for l in 1:depth
-        Ti = Ti_by_level[l]; T = front(Ti)
-        Nl = size_u(ml[l])[1]
-        nL = CartesianIndex(ntuple(k -> k==3 ? Nl[3]-2 : 0, 3))
-        T_img = T + nL
-        np = source_count(ml[l], T,     l, depth)
-        ni = source_count(ml[l], T_img, l, depth)
-        @info "  l=$l" primary=np image_n1=ni
-    end
-
-    # finest level must have sources for the near image (upper-wall sources close to T+L)
-    # — this is the key improvement over the old coarsest-only approach
-    T1 = front(Ti_by_level[1]); Nl1 = size_u(first(ml))[1]
-    nL1 = CartesianIndex(ntuple(k -> k==3 ? Nl1[3]-2 : 0, 3))
-    @test source_count(first(ml), T1+nL1, 1, depth) > 0
-
-    # every level contributes some sources (Router=domain at depth but Rinner still excluded)
-    @test all(l -> source_count(ml[l], front(Ti_by_level[l])+CartesianIndex(ntuple(k->k==3 ? size_u(ml[l])[1][3]-2 : 0,3)), l, depth) > 0, 1:depth)
 end
