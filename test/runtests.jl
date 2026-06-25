@@ -247,9 +247,6 @@ end
     BC!(u3,U3); biotBC!(u3,U3,ω3,tar3p,ftar3p,(3,),4;fmm=true)
     z_var_x = maximum(z->abs(u3[2,N2÷2,z,1]-u3[2,N2÷2,Lz÷2,1]), 3:Lz-2)
     z_var_y = maximum(z->abs(u3[N2÷2,2,z,2]-u3[N2÷2,2,Lz÷2,2]), 3:Lz-2)
-    # pinteraction (extended-domain clipping + wrapped ω at every level) makes the induced face
-    # velocity z-invariant to ~1e-4; the old finite-domain clipping left ~5e-3 here. Tight bound
-    # guards against reintroducing that clipping (which resurfaces as a spurious spanwise w).
     @test z_var_x < 1e-3
     @test z_var_y < 1e-3
 
@@ -264,9 +261,7 @@ end
 
     # fill_ω! must use buff=1 along perdir: the periodic Biot-Savart source integrates the
     # full period (indices 2:N-1), so the first interior vorticity layers (z=2, Nz-1) must be
-    # populated. buff=2 leaves them zero -> the source is incomplete (non-periodic).
-    # Reference: an exactly z-periodic (period P), z-VARYING field; the curl on one period
-    # must match the curl deep inside a tall multi-period domain (buff-insensitive there).
+    # populated
     Nx=Ny=10; P=6; φ0=0.9f0
     fx = Float32[sin(2π*(i-1)/Nx) for i in 1:Nx, j in 1:Ny]
     fy = Float32[cos(2π*(j-1)/Ny) for i in 1:Nx, j in 1:Ny]
@@ -288,10 +283,10 @@ end
     ω_b2 = MLArray(zeros(Float32,Nx,Ny,Nz_s,3)); fill_ω!(ω_b2,u_s)  # no perdir -> buff=2 in z (old path)
     @test all(iszero, ω_b2[1][:,:,2,:]) && all(iszero, ω_b2[1][:,:,Nz_s-1,:])  # what the fix guards against
 
-    # Spanwise z-reflection symmetry over several steps, check that z-velocity doesn't grow spuriously (the bug pinteraction fixes).
+    # Spanwise z-reflection symmetry over several steps, check that z-velocity doesn't grow spuriously, test pinteraction
     let sim = BiotSimulation((48,48,8),(1,0,0),24; body=AutoBody((x,t)->√sum(abs2,(x.-24)[1:2])-12),
                              ν=24/1e3, fmm=true, perdir=(3,), nimages=4)
         for _ in 1:6; sim_step!(sim;remeasure=false); end
-        @test maximum(abs,sim.flow.u[:,:,:,3]) < 1e-3   # spanwise w stays ~0 (≈1e-4; bug gives ≈5e-3)
+        @test maximum(abs,sim.flow.u[:,:,:,3]) < 1e-3   # spanwise w stays ∼1e-4
     end
 end

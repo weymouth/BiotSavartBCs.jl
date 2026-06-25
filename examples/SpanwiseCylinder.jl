@@ -13,7 +13,7 @@ vtk_pressure(a::Simulation) = a.flow.p |> Array
 
 attrib = Dict("d"=>vtk_sdf, "u"=>vtk_velocity, "μ₀"=>vtk_mu0, "p"=>vtk_pressure)
 
-sim = spanwise_cylinder()
+sim = spanwise_cylinder(;D=64)
 writer = vtkWriter("SpanwiseCylinder"; attrib)
 # run
 for t in range(0, 10.0; step=0.05)
