@@ -16,7 +16,7 @@ attrib = Dict("d"=>vtk_sdf, "u"=>vtk_velocity, "μ₀"=>vtk_mu0, "p"=>vtk_pressu
 sim = spanwise_cylinder()
 writer = vtkWriter("SpanwiseCylinder"; attrib)
 # run
-for t in range(0, 1.0; step=0.05)
+for t in range(0, 10.0; step=0.05)
     sim_step!(sim, t; remeasure=false)
     save!(writer, sim)
     @show t

@@ -75,8 +75,7 @@ end
 # Periodic interaction: periodic-aware shell sum at every level (see pinteraction).
 periodic_interaction!(ml,flat_targets,perdir,nimages) = @vecloop _periodic_interaction!(ml,lT,perdir,nimages) over lT ∈ flat_targets
 @inline function _periodic_interaction!(ml,lT,perdir,nimages)
-    l,Ti = lT
-    ml[l][Ti] = pinteraction(ml[l],Ti,l,length(ml),perdir,nimages)
+    l,Ti = lT; ml[l][Ti] = pinteraction(ml[l],Ti,l,length(ml),perdir,nimages)
 end
 
 # Biot-Savart BC using FMM. Tuple{} dispatch gives zero overhead on the non-periodic path.

@@ -201,6 +201,11 @@ end
         @test abs(u_max-2)<0.15 # 2D cylinder stagnation: u_max = 2 (loose tol: 3D first-step accuracy)
         @test abs(v_max-1)<0.05 # circle v_max = 1
         @test abs(u_inf-0.75)<0.10 # upstream slow down
+        # z-reflection symmetry: z-uniform body/inflow with w(0)=0 -> spanwise w must stay ~0.
+        # A z-varying periodic FMM BC (the bug pinteraction fixes) injects w via the pressure solve.
+        @test maximum(abs,sim.flow.u[:,:,:,3]) < 1e-3  # spanwise w ~ 0 (≈3e-5 here)
+        z_uniform = maximum(k->maximum(abs,sim.flow.u[:,:,k,1].-sim.flow.u[:,:,2,1]), 3:size(sim.flow.u,3)-2)
+        @test z_uniform < 1e-2                          # streamwise u is z-uniform
         @show sim.pois.ml.n
         @test !isempty(sim.pois.ml.n)
     end
@@ -242,8 +247,11 @@ end
     BC!(u3,U3); biotBC!(u3,U3,ω3,tar3p,ftar3p,(3,),4;fmm=true)
     z_var_x = maximum(z->abs(u3[2,N2÷2,z,1]-u3[2,N2÷2,Lz÷2,1]), 3:Lz-2)
     z_var_y = maximum(z->abs(u3[N2÷2,2,z,2]-u3[N2÷2,2,Lz÷2,2]), 3:Lz-2)
-    @test z_var_x < 0.01   # x-face is z-uniform to within 1%
-    @test z_var_y < 0.01   # y-face is z-uniform to within 1%
+    # pinteraction (extended-domain clipping + wrapped ω at every level) makes the induced face
+    # velocity z-invariant to ~1e-4; the old finite-domain clipping left ~5e-3 here. Tight bound
+    # guards against reintroducing that clipping (which resurfaces as a spurious spanwise w).
+    @test z_var_x < 1e-3
+    @test z_var_y < 1e-3
 
     # After mom_project!, periodic ghost cells must be fresh.
     # Without periodicBC! at the end of mom_project!, pflowBC! skips perdir and
@@ -279,6 +287,17 @@ end
     @test maximum(abs, ω_s[1][xy...,Nz_s-1,:]) > 0.01            # (so the match above isn't 0==0)
     ω_b2 = MLArray(zeros(Float32,Nx,Ny,Nz_s,3)); fill_ω!(ω_b2,u_s)  # no perdir -> buff=2 in z (old path)
     @test all(iszero, ω_b2[1][:,:,2,:]) && all(iszero, ω_b2[1][:,:,Nz_s-1,:])  # what the fix guards against
+
+    # Spanwise z-reflection symmetry over several steps (lightweight in-suite version of
+    # test/spanwise_w_symmetry.jl, which additionally self-calibrates against plain WaterLily).
+    # z-uniform body+inflow, w(0)=0 -> w is odd under z->-z and must stay ~round-off. The periodic
+    # FMM bug pinteraction fixes injected a z-uniform spanwise mode reaching max|w| ~ 5e-3 (~50x the
+    # WaterLily ~1e-4 baseline) by ~6 steps; the fix keeps it at ~1e-4.
+    let sim = BiotSimulation((48,48,8),(1,0,0),24; body=AutoBody((x,t)->√sum(abs2,(x.-24)[1:2])-12),
+                             ν=24/1e3, fmm=true, perdir=(3,), nimages=4)
+        for _ in 1:6; sim_step!(sim;remeasure=false); end
+        @test maximum(abs,sim.flow.u[:,:,:,3]) < 1e-3   # spanwise w stays ~0 (≈1e-4; bug gives ≈5e-3)
+    end
 end
 
 
