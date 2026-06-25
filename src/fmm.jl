@@ -29,16 +29,7 @@ interaction!(ml,flat_targets) = @vecloop _interaction!(ml,lT) over lT ∈ flat_t
 @inline _interaction!(ml,lT) = ((l,T) = lT; ml[l][T] = symmetry(ml[l],T,l,length(ml)))
 @inline symmetry(ω,T,args...) = interaction(ω,T,args...) # default: no applied symmetry
 
-# Periodic-aware interaction for ANY level. Same near/far shell structure as interaction(), but
-# the shell boxes are clipped against a domain EXTENDED by `nimages` periods in `perdir` (so the
-# periodic boundary is never hit within range), and ω is read at the periodically-WRAPPED index
-# while the kernel distance uses the UNWRAPPED position. interaction()'s plain clipping to the
-# finite domain breaks z-translation invariance in the periodic directions — near a periodic
-# boundary the wrapped neighbours that fall in a given shell depend on the target's position, so a
-# z-uniform source gives a z-varying induced velocity that the pressure solve turns into a spurious
-# spanwise velocity. Clipping against the extended domain + wrapping removes that, at every level
-# (the coarse levels were the dominant offender, where the coarse-direction interior shrinks to ~
-# the close() half-width so the box can no longer tile periodically).
+# Periodic-aware interaction for any level
 Base.@propagate_inbounds @fastmath function pinteraction(ω,Ti::CartesianIndex{Np1},l,depth,perdir,nimages) where Np1
     i,T,N = last(Ti),front(Ti),Np1-1
     Nu = size_u(ω)[1]
