@@ -1,7 +1,7 @@
 # compute ω=∇×u excluding boundaries
 import WaterLily: permute,∂,CIj
 fill_ω!(ml::Tuple,u,perdir=()) = (ω=first(ml); fill!(ω,zero(eltype(ω))); fill_ω!(ω,u,perdir); restrict!(ml))
-fill_ω!(ω,u,perdir=()) = @loop ω[Ii] = centered_curl(Ii,u) over Ii ∈ inside_u(ω,2,perdir)
+fill_ω!(ω,u,perdir=()) = @loop ω[Ii] = centered_curl(Ii,u) over Ii ∈ inside_u(ω;buff=2,perdir)
 Base.@propagate_inbounds centered_curl(Ii::CartesianIndex{4},u) = (I=front(Ii); i=last(Ii); permute((j,k)->∂(k,j,I,u),i))
 Base.@propagate_inbounds centered_curl(Ii::CartesianIndex{3},u) = (I=front(Ii); i=last(Ii); i==1 ? permute((j,k)->∂(k,j,I,u),3) : zero(eltype(u)))
 

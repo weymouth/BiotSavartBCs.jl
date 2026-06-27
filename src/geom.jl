@@ -7,14 +7,9 @@ WaterLily.down(R::CartesianIndices) = down(first(R)):down(last(R))
 # Generalize inside(array) for any thickness of buffer cells
 using WaterLily: inside
 WaterLily.inside(ndims::NTuple{n};buff=1) where n = CartesianIndices(map(N->(1+buff:N-buff),ndims))
-inside_u(a;buff=1) = inside_u(size_u(a)[1],buff)
-inside_u(ndims::NTuple{n},buff) where n = CartesianIndices((map(N->(1+buff:N-buff),ndims)...,1:n))
-# Like inside_u but uses buff=1 along periodic directions: there is no wall there, so the
-# first interior vorticity layer is well-defined (needs periodic u-ghosts) and must be
-# included for the Biot-Savart image sum to see a genuinely periodic source field.
-inside_u(a,buff,perdir) = inside_u(size_u(a)[1],buff,perdir)
-inside_u(ndims::NTuple{n},buff,perdir) where n =
-    CartesianIndices((ntuple(k-> k in perdir ? (2:ndims[k]-1) : (1+buff:ndims[k]-buff), n)...,1:n))
+# Interior u-indices with ghost buffer `buff`; along periodic directions (`perdir`) use buff=1
+inside_u(a;buff=1,perdir=()) = inside_u(size_u(a)[1],buff,perdir)
+inside_u(ndims::NTuple{n},buff,perdir=()) where n = CartesianIndices((ntuple(k-> k in perdir ? (2:ndims[k]-1) : (1+buff:ndims[k]-buff), n)...,1:n))
 
 # Local CartesianRange around a target T, with size specialized for 2D and 3D
 # note: These sources are too "close" to T for interaction at this level (unless we're at the top level)
@@ -37,7 +32,8 @@ flatten_targets(targets) = mapreduce(((level,targets),)->map(T->(level,T),target
 """
    image(T::CartesianIndex,dims,face=2)
 
-Reflect target `T` across the specified domain face of an array with dimensions `dims`. The `face` argument specifies which face to reflect across, where `±i` corresponds to the low/high side of dimension `i`. 
+Reflect target `T` across the specified domain face of an array with dimensions `dims`.
+The `face` argument specifies which face to reflect across, where `±i` corresponds to the low/high side of dimension `i`.
 Returns a tuple containing the reflected target index and the contriution sign.
 """
 @inline function image(T::CartesianIndex,dims,face=2)
