@@ -35,29 +35,19 @@ Base.@propagate_inbounds @fastmath function pinteraction(ω,Ti::CartesianIndex{N
     Nu = size_u(ω)[1]
     x = shifted(T,i)+SVector{N,Float32}(T.I)
     per = ntuple(k->Nu[k]-2, N)
-    lo_d = ntuple(k-> k in perdir ? 2 - nimages*per[k]       : 2,       N)   # domain extended
-    hi_d = ntuple(k-> k in perdir ? Nu[k]-1 + nimages*per[k] : Nu[k]-1, N)   # by nimages periods
-    pdom = CartesianIndices(ntuple(k->lo_d[k]:hi_d[k],N))
+    lo = ntuple(k-> k in perdir ? 2 - nimages*per[k]       : 2,       N) # domain extended
+    hi = ntuple(k-> k in perdir ? Nu[k]-1 + nimages*per[k] : Nu[k]-1, N) # by nimages periods
+    pdom = CartesianIndices(ntuple(k->lo[k]:hi[k],N))
     Router = l == depth ? pdom : remaining(T,pdom)
     Rinner = close(T,pdom)
     val = zero(eltype(ω))
     (l != 1 && Rinner == Router) && return val
-    ilo,ihi = first(Rinner),last(Rinner)
+    b = l == 1 ? 2 : 1   # non-perdir interior buffer (buff=2 finest, buff=1 coarse)
+    clip = CartesianIndices(ntuple(k-> k in perdir ? (lo[k]:hi[k]) : (1+b:Nu[k]-b), N))
     for S in Router
-        ok = true                          # non-perdir interior clip (buff=2 at l==1, else buff=1)
-        for k in 1:N
-            (k in perdir) && continue
-            (l == 1 ? (3 ≤ S[k] ≤ Nu[k]-2) : (2 ≤ S[k] ≤ Nu[k]-1)) || (ok = false)
-        end
-        ok || continue
-        if l != 1                          # exclude the inner near box (handled by finer levels)
-            inn = true
-            for k in 1:N
-                (ilo[k] ≤ S[k] ≤ ihi[k]) || (inn = false)
-            end
-            inn && continue
-        end
-        Sw = CartesianIndex(ntuple(k-> k in perdir ? mod(S[k]-2,per[k])+2 : S[k], N))
+        S in clip || continue                  # non-perdir interior clip (no-op in perdir)
+        (l != 1 && S in Rinner) && continue     # exclude inner near box (finer levels handle it)
+        Sw = CartesianIndex(ntuple(k-> k in perdir ? mod(S[k]-2,per[k])+2 : S[k], N)) # warp S position to array indices
         val += weighted(x-SVector{N,Float32}(S.I),Sw,i,ω)
     end
     val
