@@ -50,9 +50,9 @@ function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w, t, 
     fix_resid!(top.r,a.u,b.tar[1]) # only fix on the boundaries
 
     # combined criterion: max-norm max|r| < tol and the bulk mean-square Σr²/N < (tol/10)²
-    r₂tol = WaterLily.l2n_tol(top, tol); r∞tol = WaterLily.l∞_tol(tol)
-    nᵖ,nᵇ,r₂ = 0,0,L₂(top)
-    @log ", $nᵖ, $(WaterLily.L∞(top)), $r₂, $nᵇ\n"
+    r₂tol = WaterLily.l2n_tol(top, tol); r∞tol = tol
+    nᵖ,nᵇ,r₂ = 0,0,L₂(top); r∞ = WaterLily.L∞(top)
+    @log ", $nᵖ, $r∞, $r₂, $nᵇ\n"
     while nᵖ<itmx
         # V-cycle with fixed BCs until the residual drops >10x
         rtol = max(r₂tol,0.1r₂)
@@ -64,9 +64,9 @@ function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w, t, 
         # Update the BCs with Biot-Savart (which requires updating u,p,ω) and repeat until convergence
         project_update!(a,b) # Update u,p
         fill_ω!(b.ω,a.u); biotBC_r!(top.r,a.u,U,b.ω,b.tar,b.ftar;fmm=b.fmm) # Update BC+residual
-        r₂ = L₂(top); nᵇ+=1
-        @log ", $nᵖ, $(WaterLily.L∞(top)), $r₂, $nᵇ\n"
-        (r₂<r₂tol && WaterLily.L∞(top)<r∞tol) && break
+        r₂ = L₂(top); r∞ = WaterLily.L∞(top); nᵇ+=1
+        @log ", $nᵖ, $r∞, $r₂, $nᵇ\n"
+        (r₂<r₂tol && r∞<r∞tol) && break
     end
     push!(b.ml.n,nᵖ)
     pflowBC!(a.u)     # Update ghost BCs (domain is already correct)
