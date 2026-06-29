@@ -31,14 +31,14 @@ end
 WaterLily.update!(b::BiotSavartPoisson) = WaterLily.update!(b.ml)
 
 """
-    mom_project!(a::AbstractFlow, b::BiotSavartPoisson, w, t; tol=1e-4, itmx=32)
+    mom_project!(a::AbstractFlow, b::BiotSavartPoisson, w, t; tol=2e-3, itmx=32)
 
 Custom project method for Biot-Savart BCs. Solves for pressure with a multigrid V-cycle, applying biot_BC! to update the boundary velocity and residual at each iteration.
-Convergence uses the same grid-independent combined criterion as `WaterLily.solver!`:
-    mean squared residual `Σr²/N < tol²` and the max-norm `max|r| < 10·tol`.
+Convergence uses the same grid-independent combined criterion as `WaterLily.solver!`: `tol` is the
+max-norm tolerance `max|r| < tol`, with the bulk mean-square `Σr²/N < (tol/10)²`.
 Note: a.p is used as the incremental pressure solution for each V-cycle, while b.p accumulates the total pressure solution.
 """
-function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w, t, tol=1e-4,itmx=32) where N
+function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w, t, tol=2e-3,itmx=32) where N
     dt = w*a.Δt[end]; a.p .*= dt  # Scale p *= w*Δt
     U = BCTuple(a.uBC,t,N)        # BC tuple for current time step
     b.p .= 0; project_update!(a,b)                              # Project out initial μ₀∇p
@@ -49,7 +49,7 @@ function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w, t, 
     @inside top.r[I] = ifelse(top.iD[I]==0,0,WaterLily.div(I,a.u))
     fix_resid!(top.r,a.u,b.tar[1]) # only fix on the boundaries
 
-    # per-cell mean-square residual Σr²/N < tol² and the max-norm max|r| < 10·tol
+    # combined criterion: max-norm max|r| < tol and the bulk mean-square Σr²/N < (tol/10)²
     r₂tol = WaterLily.l2n_tol(top, tol); r∞tol = WaterLily.l∞_tol(tol)
     nᵖ,nᵇ,r₂ = 0,0,L₂(top)
     @log ", $nᵖ, $(WaterLily.L∞(top)), $r₂, $nᵇ\n"
