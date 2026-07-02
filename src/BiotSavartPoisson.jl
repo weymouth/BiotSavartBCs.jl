@@ -34,8 +34,10 @@ WaterLily.update!(b::BiotSavartPoisson) = WaterLily.update!(b.ml)
     mom_project!(a::AbstractFlow, b::BiotSavartPoisson, w, t; tol=2e-3, itmx=32)
 
 Custom project method for Biot-Savart BCs. Solves for pressure with a multigrid V-cycle, applying biot_BC! to update the boundary velocity and residual at each iteration.
-Convergence uses the same grid-independent combined criterion as `WaterLily.solver!`: `tol` is the
-max-norm tolerance `max|r| < tol`, with the bulk mean-square `Σr²/N < (tol/10)²`.
+Convergence uses the same grid-independent criterion as `WaterLily.solver!`: `tol` is the
+max-norm (worst-cell) tolerance `max|r| < tol` — the knob to tune, since the max-norm is
+the binding constraint on refined grids — with the mean residual additionally required to
+sit 10x below it, `Σ|r|/N < tol/10` (same units as the max-norm).
 Note: a.p is used as the incremental pressure solution for each V-cycle, while b.p accumulates the total pressure solution.
 """
 function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w, t, tol=2e-3,itmx=32) where N
@@ -49,24 +51,24 @@ function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w, t, 
     @inside top.r[I] = ifelse(top.iD[I]==0,0,WaterLily.div(I,a.u))
     fix_resid!(top.r,a.u,b.tar[1]) # only fix on the boundaries
 
-    # combined criterion: max-norm max|r| < tol and the bulk mean-square Σr²/N < (tol/10)²
-    r₂tol = WaterLily.l2n_tol(top, tol); r∞tol = tol
-    nᵖ,nᵇ,r₂ = 0,0,L₂(top); r∞ = WaterLily.L∞(top)
-    @log ", $nᵖ, $r∞, $r₂, $nᵇ\n"
+    # criterion: max-norm max|r| < tol and mean residual Σ|r|/N < tol/10
+    r₁tol = WaterLily.l1n_tol(top, tol); r∞tol = tol
+    nᵖ,nᵇ,r₁ = 0,0,WaterLily.L₁(top); r∞ = WaterLily.L∞(top)
+    @log ", $nᵖ, $r∞, $r₁, $nᵇ\n"
     while nᵖ<itmx
         # V-cycle with fixed BCs until the residual drops >10x
-        rtol = max(r₂tol,0.1r₂)
+        rtol = max(r₁tol,0.1r₁)
         while nᵖ<itmx
             WaterLily.Vcycle!(b.ml); WaterLily.smooth!(top)
-            r₂ = L₂(top); nᵖ+=1
-            r₂<rtol && break
+            r₁ = WaterLily.L₁(top); nᵖ+=1
+            r₁<rtol && break
         end
         # Update the BCs with Biot-Savart (which requires updating u,p,ω) and repeat until convergence
         project_update!(a,b) # Update u,p
         fill_ω!(b.ω,a.u); biotBC_r!(top.r,a.u,U,b.ω,b.tar,b.ftar;fmm=b.fmm) # Update BC+residual
-        r₂ = L₂(top); r∞ = WaterLily.L∞(top); nᵇ+=1
-        @log ", $nᵖ, $r∞, $r₂, $nᵇ\n"
-        (r₂<r₂tol && r∞<r∞tol) && break
+        r₁ = WaterLily.L₁(top); r∞ = WaterLily.L∞(top); nᵇ+=1
+        @log ", $nᵖ, $r∞, $r₁, $nᵇ\n"
+        (r₁<r₁tol && r∞<r∞tol) && break
     end
     push!(b.ml.n,nᵖ)
     pflowBC!(a.u)     # Update ghost BCs (domain is already correct)
