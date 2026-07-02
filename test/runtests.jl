@@ -191,7 +191,7 @@ end
     # Spanwise-periodic cylinder: stagnation velocity should match 2D result (fmm=true only; tree has no periodic support)
     cyl_span(D;m=2D,Lz=D÷2) = BiotSimulation((m,m,Lz),(1,0,0),D;
                                               body=AutoBody((x,t)->√sum(abs2,(x.-m/2)[1:2])-D/2),
-                                              ν=D/1e4,fmm=true,perdir=(3,),nimages=4)
+                                              ν=D/1e4,fmm=true,perdir=(3,))
     let sim = cyl_span(128)
         sim_step!(sim;remeasure=false)
         u_max = maximum(sim.flow.u[:,:,:,1])
@@ -285,7 +285,7 @@ end
 
     # Spanwise z-reflection symmetry over several steps, check that z-velocity doesn't grow spuriously, test pinteraction
     let sim = BiotSimulation((48,48,8),(1,0,0),24; body=AutoBody((x,t)->√sum(abs2,(x.-24)[1:2])-12),
-                             ν=24/1e3, fmm=true, perdir=(3,), nimages=4)
+                             ν=24/1e3, fmm=true, perdir=(3,))
         for _ in 1:6; sim_step!(sim;remeasure=false); end
         @test maximum(abs,sim.flow.u[:,:,:,3]) < 1e-3   # spanwise w stays ∼1e-4
     end
