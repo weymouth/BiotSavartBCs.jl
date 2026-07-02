@@ -250,14 +250,14 @@ end
     @test z_var_x < 1e-3
     @test z_var_y < 1e-3
 
-    # After mom_project!, periodic ghost cells must be fresh.
+    # After mom_project!, periodic ghost cells must be fresh (perdir=(3,) — periodic BCs are 3D-only).
     # Without periodicBC! at the end of mom_project!, pflowBC! skips perdir and
     # ghosts remain stale, causing spurious div(u) in the next step.
-    sim2d = BiotSimulation((16,16),(1,0),8; perdir=(2,), ν=0.01)
-    sim_step!(sim2d; remeasure=false)
-    u = sim2d.flow.u
-    @test u[:,1,:] == u[:,end-1,:]  # lower ghost = upper interior
-    @test u[:,end,:] == u[:,2,:]    # upper ghost = lower interior
+    sim3d = BiotSimulation((16,16,8),(1,0,0),8; perdir=(3,), ν=0.01)
+    sim_step!(sim3d; remeasure=false)
+    u = sim3d.flow.u
+    @test u[:,:,1,:] == u[:,:,end-1,:]  # lower ghost = upper interior
+    @test u[:,:,end,:] == u[:,:,2,:]    # upper ghost = lower interior
 
     # fill_ω! must use buff=1 along perdir: the periodic Biot-Savart source integrates the
     # full period (indices 2:N-1), so the first interior vorticity layers (z=2, Nz-1) must be

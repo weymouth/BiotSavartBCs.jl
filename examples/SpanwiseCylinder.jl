@@ -1,9 +1,9 @@
 using WaterLily, BiotSavartBCs, WriteVTK
 
-function spanwise_cylinder(; D=32, Lz=D÷2, Re=500, U=1, T=Float32, mem=Array)
+function spanwise_cylinder(; D=32, Lz=D÷4, Re=3700, U=1, T=Float32, mem=Array)
     body = AutoBody((x,t) -> √sum(abs2,(x.-D)[1:2]) - D/3)
     # Simulation((4D,2D,Lz), (U,0,0), D; ν=U*D/Re, body, T, mem, perdir=(3,))
-    BiotSimulation((4D,2D,Lz), (U,0,0), D; ν=U*D/Re, body, T, mem, perdir=(3,), nimages=4)
+    BiotSimulation((4D,2D,Lz), (U,0,0), D; ν=U*D/Re, body, T, mem, perdir=(3,), nimages=2)
 end
 
 vtk_sdf(a::Simulation)      = (measure_sdf!(a.flow.σ, a.body, WaterLily.time(a)); a.flow.σ |> Array)
@@ -13,10 +13,10 @@ vtk_pressure(a::Simulation) = a.flow.p |> Array
 
 attrib = Dict("d"=>vtk_sdf, "u"=>vtk_velocity, "μ₀"=>vtk_mu0, "p"=>vtk_pressure)
 
-sim = spanwise_cylinder(;D=64)
+sim = spanwise_cylinder(;D=128)
 writer = vtkWriter("SpanwiseCylinder"; attrib)
 # run
-for t in range(0, 10.0; step=0.05)
+for t in range(0, 30.0; step=0.05)
     sim_step!(sim, t; remeasure=false)
     save!(writer, sim)
     @show t

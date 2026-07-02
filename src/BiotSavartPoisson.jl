@@ -12,7 +12,7 @@ Fields:
 - `p`       : pressure solution accumulator
 - `fmm`     : use Fast Multi-level Method (`true`) or tree-sum (`false`)
 - `perdir`  : periodic directions (forwarded from `flow.perdir`); those faces are excluded from Biot-Savart targets
-- `nimages` : number of periodic image copies per side used in the Biot-Savart sum
+- `nimages` : fixed discrete image-core half-width per side in `perdir`; the |n|>nimages remainder is summed in closed form (`image_tail`), so accuracy does not depend on it
 """
 struct BiotSavartPoisson{T,S,V} <: AbstractPoisson{T,S,V}
     ml      :: MultiLevelPoisson{T,S,V}
@@ -23,7 +23,7 @@ struct BiotSavartPoisson{T,S,V} <: AbstractPoisson{T,S,V}
     fmm     :: Bool
     perdir  :: NTuple
     nimages :: Int
-    function BiotSavartPoisson(flow; nonbiotfaces=(), fmm=true, mem=Array, nimages=4)
+    function BiotSavartPoisson(flow; nonbiotfaces=(), fmm=true, mem=Array, nimages=2)
         ml = MultiLevelPoisson(flow.p, flow.μ₀, flow.σ; perdir=flow.perdir)
         ω  = MLArray(flow.f)   # top level aliases flow.f — no copy
         tar  = mem.(collect_targets(ω, nonbiotfaces, flow.perdir))
