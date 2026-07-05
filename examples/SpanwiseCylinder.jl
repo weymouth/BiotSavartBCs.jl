@@ -1,8 +1,8 @@
-using WaterLily, BiotSavartBCs, WriteVTK
+using WaterLily, StaticArrays, BiotSavartBCs, WriteVTK
 
 # simulation constructor
-function spanwise_cylinder(; D=32, Lz=D÷4, Re=3700, U=1, T=Float32, mem=Array)
-    body = AutoBody((x,t) -> √sum(abs2,(x.-D)[1:2]) - D/3)
+function spanwise_cylinder(; D=32, Lz=D÷4, Re=3_700, U=1, T=Float32, mem=Array)
+    body = AutoBody((x,t) -> √sum(abs2,SA[x[1]-D,x[2]-D]) - D/3.f0)
     # default nimage=2
     BiotSimulation((4D,2D,Lz), (U,0,0), D; ν=U*D/Re, body, T, mem, perdir=(3,), nimages=2)
 end
@@ -16,7 +16,8 @@ vtk_pressure(a::Simulation) = a.flow.p  |> Array
 attrib = Dict("d"=>vtk_sdf, "u"=>vtk_velocity, "μ₀"=>vtk_mu0, "p"=>vtk_pressure)
 
 # make sim and writer
-sim = spanwise_cylinder(;D=128)
+using CUDA
+sim = spanwise_cylinder(;D=128,mem=CuArray)
 writer = vtkWriter("SpanwiseCylinder"; attrib)
 
 # run
