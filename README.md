@@ -21,8 +21,6 @@ You can update and plot the simulation structure exactly the same at with a stan
 ```julia
 sim_step!(sim, t_end; remeasure::Bool)
 ```
-Note that this function is type-specialized to use a new `biot_mom_step!()` instead of the classical `mom_step!()`.
-
 There are numerous examples in the `examples` folder of this repository that show how to use these new boundary conditions in practice.
 
 ### Method
