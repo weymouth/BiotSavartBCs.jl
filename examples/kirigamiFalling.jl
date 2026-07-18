@@ -1,21 +1,20 @@
 using WaterLily,BiotSavartBCs,CUDA,StaticArrays,TypedTables
 
 # Biot-Savart momentum step with U and acceleration prescribed
-import WaterLily: scale_u!,conv_diff!,udf!,BDIM!,CFL
-import BiotSavartBCs: biot_project!
-function biot_mom_step_fall!(sim::BiotSimulation;udf=nothing,U,kwargs...)
-    a=sim.flow; b=sim.pois; ω=(sim.ω,sim.x₀,sim.tar,sim.ftar)
+import WaterLily: scale_u!,conv_diff!,udf!,BDIM!,CFL,mom_project!
+function biot_mom_step_fall!(sim::AbstractSimulation;udf=nothing,U,kwargs...)
+    a=sim.flow; b=sim.pois
     a.u⁰ .= a.u; scale_u!(a,0); t₁ = sum(a.Δt); t₀ = t₁-a.Δt[end]
     # predictor u → u'
-    conv_diff!(a.f,a.u⁰,a.σ,quick,ν=a.ν)
-    udf!(a,udf,t₀; kwargs...)
+    conv_diff!(a.f,a.u⁰,a.σ,a.λ;ν=a.ν,perdir=a.perdir)
+    udf!(a,udf,a.u⁰,t₀; kwargs...)
     BDIM!(a);
-    biot_project!(a,b,ω...,U;sim.fmm)
+    mom_project!(a,b,1,t₁;U)
     # corrector u → u¹
-    conv_diff!(a.f,a.u,a.σ,quick,ν=a.ν)
-    udf!(a,udf,t₁; kwargs...)
+    conv_diff!(a.f,a.u,a.σ,a.λ;ν=a.ν,perdir=a.perdir)
+    udf!(a,udf,a.u,t₁; kwargs...)
     BDIM!(a); scale_u!(a,0.5)
-    biot_project!(a,b,ω...,U;sim.fmm,w=0.5)
+    mom_project!(a,b,0.5,t₁;U)
     push!(a.Δt,CFL(a))
 end
 
