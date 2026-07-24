@@ -35,14 +35,14 @@ end
 WaterLily.update!(b::BiotSavartPoisson) = WaterLily.update!(b.ml)
 
 """
-    mom_project!(a::AbstractFlow, b::BiotSavartPoisson, w, t; tol=1e-4, itmx=32)
+    mom_project!(a::AbstractFlow, b::BiotSavartPoisson, w, t; U=BCTuple(a.uBC,t,N), tol=1e-4, itmx=32)
 
 Custom project method for Biot-Savart BCs. Solves for pressure with a multigrid V-cycle, applying biot_BC! to update the boundary velocity and residual at each iteration.
 Note: a.p is used as the incremental pressure solution for each V-cycle, while b.p accumulates the total pressure solution.
+`U` defaults to the domain BC tuple, but can be overridden (e.g. for a moving reference frame) by callers that bypass `WaterLily.mom_step!`.
 """
-function WaterLily.mom_project!(a::AbstractFlow{N},b::BiotSavartPoisson,w,t,tol=1e-4,itmx=32) where N
+function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w, t; U=BCTuple(a.uBC,t,N), tol=1e-4, itmx=32) where N
     dt = w*a.Δt[end]; a.p .*= dt  # Scale p *= w*Δt
-    U = BCTuple(a.uBC,t,N)        # BC tuple for current time step
     b.p .= 0; project_update!(a,b)                              # Project out initial μ₀∇p
     periodicBC!(a.u,b.perdir)   # sync periodic u-ghosts so fill_ω!'s curl at the perdir boundary layers (buff=1) is periodic
     fill_ω!(b.ω,a.u,b.perdir); biotBC!(a.u,U,b.ω,b.tar,b.ftar,b.perdir,b.nimages;fmm=b.fmm)
